@@ -1,0 +1,615 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>RBZ Design System - Extracted & Enhanced</title>
+  <meta name="description" content="RBZ Connect Design System showcasing extracted colors, feel, and innovative enhancements">
+  
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Playfair+Display:wght@700;800&display=swap" rel="stylesheet">
+  
+  <!-- Design System -->
+  <link rel="stylesheet" href="rbz-design-tokens.css">
+  
+  <style>
+    /* ========== COMPONENT STYLES ========== */
+    
+    /* Header - Extracted from RBZ */
+    .rbz-header {
+      background: var(--rbz-gradient-gold);
+      padding: var(--rbz-spacing-md) var(--rbz-spacing-2xl);
+      box-shadow: var(--rbz-shadow-gold);
+      position: sticky;
+      top: 0;
+      z-index: var(--rbz-z-sticky);
+    }
+    
+    .rbz-header-container {
+      max-width: 1400px;
+      margin: 0 auto;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    
+    .rbz-logo {
+      display: flex;
+      align-items: center;
+      gap: var(--rbz-spacing-md);
+      color: var(--rbz-white);
+      font-size: var(--rbz-text-xl);
+      font-weight: var(--rbz-weight-bold);
+      text-decoration: none;
+    }
+    
+    .rbz-logo-icon {
+      width: 50px;
+      height: 50px;
+      background: var(--rbz-white);
+      border-radius: var(--rbz-radius-full);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: var(--rbz-weight-bold);
+      color: var(--rbz-gold-dark);
+      box-shadow: var(--rbz-shadow-md);
+    }
+    
+    .rbz-nav {
+      display: flex;
+      gap: var(--rbz-spacing-xl);
+      align-items: center;
+    }
+    
+    .rbz-nav-link {
+      color: var(--rbz-white);
+      text-decoration: none;
+      font-weight: var(--rbz-weight-medium);
+      padding: var(--rbz-spacing-sm) var(--rbz-spacing-md);
+      border-radius: var(--rbz-radius-md);
+      transition: all var(--rbz-transition-base);
+      position: relative;
+    }
+    
+    .rbz-nav-link::after {
+      content: '';
+      position: absolute;
+      bottom: 0;
+      left: 50%;
+      width: 0;
+      height: 2px;
+      background: var(--rbz-white);
+      transition: all var(--rbz-transition-base);
+      transform: translateX(-50%);
+    }
+    
+    .rbz-nav-link:hover::after {
+      width: 80%;
+    }
+    
+    .rbz-nav-link:hover {
+      background: rgba(255, 255, 255, 0.1);
+    }
+    
+    /* Hero Section - Extracted & Enhanced */
+    .rbz-hero {
+      background: var(--rbz-gradient-hero);
+      padding: var(--rbz-spacing-4xl) var(--rbz-spacing-2xl);
+      text-align: center;
+      position: relative;
+      overflow: hidden;
+    }
+    
+    .rbz-hero::before {
+      content: '';
+      position: absolute;
+      top: -50%;
+      left: -50%;
+      width: 200%;
+      height: 200%;
+      background: radial-gradient(circle, rgba(212, 163, 86, 0.1) 0%, transparent 70%);
+      animation: float 10s ease-in-out infinite;
+    }
+    
+    .rbz-hero-content {
+      max-width: 1000px;
+      margin: 0 auto;
+      position: relative;
+      z-index: 1;
+    }
+    
+    .rbz-hero-title {
+      font-size: var(--rbz-text-6xl);
+      font-weight: var(--rbz-weight-extrabold);
+      color: var(--rbz-white);
+      margin-bottom: var(--rbz-spacing-lg);
+      line-height: var(--rbz-leading-tight);
+    }
+    
+    .rbz-hero-title .highlight {
+      background: var(--rbz-gradient-gold-shine);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      animation: shimmer 3s linear infinite;
+      background-size: 200% auto;
+    }
+    
+    .rbz-hero-subtitle {
+      font-size: var(--rbz-text-2xl);
+      color: var(--rbz-white);
+      font-weight: var(--rbz-weight-normal);
+      opacity: 0.95;
+    }
+    
+    .rbz-hero-subtitle .emphasize {
+      color: var(--rbz-gold-light);
+      font-weight: var(--rbz-weight-bold);
+    }
+    
+    /* Card Components - Enhanced */
+    .rbz-card {
+      background: var(--rbz-white);
+      border-radius: var(--rbz-radius-xl);
+      padding: var(--rbz-spacing-xl);
+      box-shadow: var(--rbz-shadow);
+      transition: all var(--rbz-transition-base);
+    }
+    
+    .rbz-card:hover {
+      transform: translateY(-4px);
+      box-shadow: var(--rbz-shadow-xl);
+    }
+    
+    .rbz-card-header {
+      font-size: var(--rbz-text-2xl);
+      font-weight: var(--rbz-weight-bold);
+      color: var(--rbz-navy-dark);
+      margin-bottom: var(--rbz-spacing-lg);
+      padding-bottom: var(--rbz-spacing-md);
+      border-bottom: 3px solid var(--rbz-gold);
+    }
+    
+    /* Notice Board - Extracted & Enhanced */
+    .rbz-notice-board {
+      background: var(--rbz-gradient-purple);
+      border-radius: var(--rbz-radius-xl);
+      padding: var(--rbz-spacing-xl);
+      box-shadow: var(--rbz-shadow-md);
+    }
+    
+    .rbz-notice-item {
+      background: var(--rbz-white);
+      padding: var(--rbz-spacing-md);
+      margin-bottom: var(--rbz-spacing-md);
+      border-radius: var(--rbz-radius-lg);
+      border-left: 4px solid var(--rbz-gold);
+      transition: all var(--rbz-transition-base);
+      cursor: pointer;
+    }
+    
+    .rbz-notice-item:hover {
+      transform: translateX(8px);
+      box-shadow: var(--rbz-shadow-md);
+      border-left-color: var(--rbz-navy);
+    }
+    
+    .rbz-notice-item:last-child {
+      margin-bottom: 0;
+    }
+    
+    .rbz-notice-title {
+      font-weight: var(--rbz-weight-semibold);
+      color: var(--rbz-navy);
+      margin-bottom: var(--rbz-spacing-xs);
+    }
+    
+    .rbz-notice-meta {
+      font-size: var(--rbz-text-sm);
+      color: var(--rbz-gray-600);
+    }
+    
+    /* News Card - Enhanced */
+    .rbz-news-card {
+      display: flex;
+      gap: var(--rbz-spacing-lg);
+      padding: var(--rbz-spacing-lg);
+      background: var(--rbz-white);
+      border-radius: var(--rbz-radius-lg);
+      box-shadow: var(--rbz-shadow);
+      transition: all var(--rbz-transition-base);
+      margin-bottom: var(--rbz-spacing-lg);
+    }
+    
+    .rbz-news-card:hover {
+      box-shadow: var(--rbz-shadow-lg);
+      transform: scale(1.02);
+    }
+    
+    .rbz-news-image {
+      width: 150px;
+      height: 100px;
+      object-fit: cover;
+      border-radius: var(--rbz-radius-md);
+      flex-shrink: 0;
+    }
+    
+    .rbz-news-content h3 {
+      font-size: var(--rbz-text-lg);
+      font-weight: var(--rbz-weight-semibold);
+      color: var(--rbz-navy);
+      margin-bottom: var(--rbz-spacing-sm);
+    }
+    
+    .rbz-news-content p {
+      color: var(--rbz-gray-600);
+      font-size: var(--rbz-text-sm);
+    }
+    
+    /* Button Styles - Innovative */
+    .rbz-btn {
+      padding: var(--rbz-spacing-md) var(--rbz-spacing-xl);
+      border-radius: var(--rbz-radius-lg);
+      font-weight: var(--rbz-weight-semibold);
+      text-decoration: none;
+      display: inline-block;
+      transition: all var(--rbz-transition-base);
+      border: none;
+      cursor: pointer;
+      font-size: var(--rbz-text-base);
+    }
+    
+    .rbz-btn-primary {
+      background: var(--rbz-gradient-gold);
+      color: var(--rbz-white);
+      box-shadow: var(--rbz-shadow-gold);
+    }
+    
+    .rbz-btn-primary:hover {
+      transform: translateY(-2px);
+      box-shadow: var(--rbz-shadow-xl);
+    }
+    
+    .rbz-btn-secondary {
+      background: var(--rbz-navy);
+      color: var(--rbz-white);
+      box-shadow: var(--rbz-shadow-navy);
+    }
+    
+    .rbz-btn-secondary:hover {
+      background: var(--rbz-navy-light);
+      transform: translateY(-2px);
+    }
+    
+    .rbz-btn-outline {
+      background: transparent;
+      border: 2px solid var(--rbz-gold);
+      color: var(--rbz-gold-dark);
+    }
+    
+    .rbz-btn-outline:hover {
+      background: var(--rbz-gradient-gold);
+      color: var(--rbz-white);
+    }
+    
+    /* Grid Layout */
+    .rbz-grid {
+      display: grid;
+      gap: var(--rbz-spacing-xl);
+      max-width: 1400px;
+      margin: 0 auto;
+      padding: var(--rbz-spacing-2xl);
+    }
+    
+    .rbz-grid-3 {
+      grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+    }
+    
+    .rbz-grid-2 {
+      grid-template-columns: repeat(auto-fit, minmax(500px, 1fr));
+    }
+    
+    /* Color Palette Display */
+    .color-palette {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+      gap: var(--rbz-spacing-lg);
+      margin-top: var(--rbz-spacing-xl);
+    }
+    
+    .color-swatch {
+      text-align: center;
+    }
+    
+    .color-box {
+      width: 100%;
+      height: 100px;
+      border-radius: var(--rbz-radius-lg);
+      box-shadow: var(--rbz-shadow);
+      margin-bottom: var(--rbz-spacing-sm);
+      transition: transform var(--rbz-transition-base);
+    }
+    
+    .color-box:hover {
+      transform: scale(1.1);
+    }
+    
+    .color-name {
+      font-weight: var(--rbz-weight-semibold);
+      color: var(--rbz-gray-800);
+      font-size: var(--rbz-text-sm);
+    }
+    
+    .color-value {
+      font-size: var(--rbz-text-xs);
+      color: var(--rbz-gray-500);
+      font-family: var(--rbz-font-mono);
+    }
+    
+    /* Stats Card */
+    .stats-card {
+      background: var(--rbz-white);
+      border-radius: var(--rbz-radius-xl);
+      padding: var(--rbz-spacing-xl);
+      text-align: center;
+      box-shadow: var(--rbz-shadow-lg);
+      border-top: 4px solid var(--rbz-gold);
+    }
+    
+    .stats-value {
+      font-size: var(--rbz-text-5xl);
+      font-weight: var(--rbz-weight-extrabold);
+      background: var(--rbz-gradient-gold);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      margin-bottom: var(--rbz-spacing-sm);
+    }
+    
+    .stats-label {
+      color: var(--rbz-gray-600);
+      font-size: var(--rbz-text-lg);
+      font-weight: var(--rbz-weight-medium);
+    }
+    
+    /* Responsive */
+    @media (max-width: 768px) {
+      .rbz-nav {
+        display: none;
+      }
+      
+      .rbz-hero-title {
+        font-size: var(--rbz-text-4xl);
+      }
+      
+      .rbz-grid-3, .rbz-grid-2 {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  
+  <!-- Header - Extracted from RBZ -->
+  <header class="rbz-header animate-slide-down">
+    <div class="rbz-header-container">
+      <a href="#" class="rbz-logo">
+        <div class="rbz-logo-icon">RBZ</div>
+        <span>RBZ<em>Connect</em></span>
+      </a>
+      <nav class="rbz-nav">
+        <a href="#home" class="rbz-nav-link">Home</a>
+        <a href="#divisional" class="rbz-nav-link">Divisional Libraries</a>
+        <a href="#policies" class="rbz-nav-link">Policies and Procedures</a>
+        <a href="#message" class="rbz-nav-link">Message Box</a>
+        <a href="#circulars" class="rbz-nav-link">Circulars</a>
+        <a href="#links" class="rbz-nav-link">Application Links</a>
+        <a href="#news" class="rbz-nav-link">News and Updates</a>
+        <a href="#gallery" class="rbz-nav-link">Gallery</a>
+        <a href="#staff" class="rbz-nav-link">Staff Corner</a>
+      </nav>
+    </div>
+  </header>
+  
+  <!-- Hero Section - Enhanced -->
+  <section class="rbz-hero">
+    <div class="rbz-hero-content">
+      <h1 class="rbz-hero-title animate-slide-up">
+        Becoming a <span class="highlight">World-Class Central Bank</span>...
+      </h1>
+      <p class="rbz-hero-subtitle animate-slide-up">
+        ...Starts with how <span class="emphasize">WE</span> show up everyday
+      </p>
+    </div>
+  </section>
+  
+  <!-- Main Content -->
+  <main>
+    
+    <!-- Design System Showcase -->
+    <section class="rbz-grid rbz-grid-2" style="margin-top: var(--rbz-spacing-3xl);">
+      <div class="rbz-card animate-slide-left">
+        <h2 class="rbz-card-header">🎨 Extracted Color Palette</h2>
+        <p style="color: var(--rbz-gray-600); margin-bottom: var(--rbz-spacing-lg);">
+          These colors were carefully extracted from the RBZ website and enhanced with modern gradients and variations.
+        </p>
+        
+        <div class="color-palette">
+          <div class="color-swatch">
+            <div class="color-box" style="background: var(--rbz-gold);"></div>
+            <div class="color-name">Gold</div>
+            <div class="color-value">#C89F56</div>
+          </div>
+          <div class="color-swatch">
+            <div class="color-box" style="background: var(--rbz-gold-light);"></div>
+            <div class="color-name">Gold Light</div>
+            <div class="color-value">#D4A356</div>
+          </div>
+          <div class="color-swatch">
+            <div class="color-box" style="background: var(--rbz-gold-dark);"></div>
+            <div class="color-name">Gold Dark</div>
+            <div class="color-value">#B8860B</div>
+          </div>
+          <div class="color-swatch">
+            <div class="color-box" style="background: var(--rbz-navy);"></div>
+            <div class="color-name">Navy</div>
+            <div class="color-value">#2B2E5F</div>
+          </div>
+          <div class="color-swatch">
+            <div class="color-box" style="background: var(--rbz-navy-dark);"></div>
+            <div class="color-name">Navy Dark</div>
+            <div class="color-value">#1A1A4D</div>
+          </div>
+          <div class="color-swatch">
+            <div class="color-box" style="background: var(--rbz-purple-light);"></div>
+            <div class="color-name">Purple Light</div>
+            <div class="color-value">#F0EFF7</div>
+          </div>
+        </div>
+      </div>
+      
+      <div class="rbz-card animate-slide-right">
+        <h2 class="rbz-card-header">✨ Design Innovations</h2>
+        <p style="color: var(--rbz-gray-600); margin-bottom: var(--rbz-spacing-lg);">
+          Modern enhancements while maintaining the professional RBZ identity.
+        </p>
+        
+        <ul style="list-style: none; padding: 0;">
+          <li style="padding: var(--rbz-spacing-md); margin-bottom: var(--rbz-spacing-sm); background: var(--rbz-purple-light); border-radius: var(--rbz-radius-md); border-left: 4px solid var(--rbz-gold);">
+            <strong>Premium Gradients:</strong> Added sophisticated gold and navy gradients
+          </li>
+          <li style="padding: var(--rbz-spacing-md); margin-bottom: var(--rbz-spacing-sm); background: var(--rbz-purple-light); border-radius: var(--rbz-radius-md); border-left: 4px solid var(--rbz-navy);">
+            <strong>Micro-animations:</strong> Smooth transitions and hover effects
+          </li>
+          <li style="padding: var(--rbz-spacing-md); margin-bottom: var(--rbz-spacing-sm); background: var(--rbz-purple-light); border-radius: var(--rbz-radius-md); border-left: 4px solid var(--rbz-gold);">
+            <strong>Enhanced Shadows:</strong> Layered depth with contextual shadows
+          </li>
+          <li style="padding: var(--rbz-spacing-md); margin-bottom: var(--rbz-spacing-sm); background: var(--rbz-purple-light); border-radius: var(--rbz-radius-md); border-left: 4px solid var(--rbz-navy);">
+            <strong>Modern Typography:</strong> Inter and Playfair Display fonts
+          </li>
+          <li style="padding: var(--rbz-spacing-md); background: var(--rbz-purple-light); border-radius: var(--rbz-radius-md); border-left: 4px solid var(--rbz-gold);">
+            <strong>Glassmorphism:</strong> Contemporary glass effects for modern UI
+          </li>
+        </ul>
+      </div>
+    </section>
+    
+    <!-- News and Notice Board -->
+    <section class="rbz-grid" style="grid-template-columns: 2fr 1fr; gap: var(--rbz-spacing-2xl); margin-top: var(--rbz-spacing-3xl);">
+      
+      <!-- News Section -->
+      <div>
+        <h2 class="heading-3" style="margin-bottom: var(--rbz-spacing-xl);">📰 NEWS AND UPDATES</h2>
+        
+        <div class="rbz-news-card animate-slide-up">
+          <img src="https://placehold.co/150x100/2B2E5F/FFFFFF/png?text=RBZ+News" alt="News" class="rbz-news-image">
+          <div class="rbz-news-content">
+            <h3>Eswatini Central Bank Visits RBZ: Commends Zimbabwe's Reserves Strategy</h3>
+            <p>The Central Bank of Eswatini delegation visited RBZ to discuss monetary policy frameworks and reserve management strategies...</p>
+          </div>
+        </div>
+        
+        <div class="rbz-news-card animate-slide-up">
+          <img src="https://placehold.co/150x100/C89F56/FFFFFF/png?text=MPC" alt="MPC" class="rbz-news-image">
+          <div class="rbz-news-content">
+            <h3>Sustained Stability: MPC Notes Positive Economic Prospects</h3>
+            <p>The Monetary Policy Committee (MPC) has reported sustained economic stability with positive growth prospects for Q1 2026...</p>
+          </div>
+        </div>
+        
+        <div class="rbz-news-card animate-slide-up">
+          <img src="https://placehold.co/150x100/1A1A4D/FFFFFF/png?text=SSCLs" alt="SSCLs" class="rbz-news-image">
+          <div class="rbz-news-content">
+            <h3>RBZ Hosts Key Stakeholder Engagement on SSCLs...leads sustainability agenda</h3>
+            <p>The Reserve Bank of Zimbabwe hosted a crucial stakeholder engagement on Sustainability-Linked Credit Lines...</p>
+          </div>
+        </div>
+      </div>
+      
+      <!-- Notice Board -->
+      <div class="rbz-notice-board animate-slide-right">
+        <h3 class="rbz-card-header" style="color: var(--rbz-navy); margin-bottom: var(--rbz-spacing-lg);">
+          📌 NOTICE BOARD
+        </h3>
+        
+        <div class="rbz-notice-item">
+          <div class="rbz-notice-title">Staff Circular - Recognition of staff who attained IDRZ industry qualifications</div>
+          <div class="rbz-notice-meta">📅 Read Here</div>
+        </div>
+        
+        <div class="rbz-notice-item">
+          <div class="rbz-notice-title">MPC Full Meeting Statement: 1 December 2025</div>
+          <div class="rbz-notice-meta">📄 Read here</div>
+        </div>
+        
+        <div class="rbz-notice-item">
+          <div class="rbz-notice-title">Mandatory Online Cyber Awareness Training: 24 November - 31 December 2025</div>
+          <div class="rbz-notice-meta">🔒 Read Here</div>
+        </div>
+        
+        <div class="rbz-notice-item">
+          <div class="rbz-notice-title">Stakeholder Service Charter</div>
+          <div class="rbz-notice-meta">📜 Read Here</div>
+        </div>
+        
+        <div class="rbz-notice-item">
+          <div class="rbz-notice-title">Quarterly Snapshot on recent monetary, currency, price and financial developments</div>
+          <div class="rbz-notice-meta">📊 Read Here</div>
+        </div>
+        
+        <div class="rbz-notice-item">
+          <div class="rbz-notice-title">Public Notice: Proliferation of fake gemini media confirm</div>
+          <div class="rbz-notice-meta">⚠️ Read Here</div>
+        </div>
+      </div>
+    </section>
+    
+    <!-- Stats Section -->
+    <section class="rbz-grid rbz-grid-3" style="margin-top: var(--rbz-spacing-3xl); margin-bottom: var(--rbz-spacing-4xl);">
+      <div class="stats-card animate-slide-up">
+        <div class="stats-value">98%</div>
+        <div class="stats-label">System Uptime</div>
+      </div>
+      <div class="stats-card animate-slide-up" style="animation-delay: 0.1s;">
+        <div class="stats-value">24/7</div>
+        <div class="stats-label">Support Available</div>
+      </div>
+      <div class="stats-card animate-slide-up" style="animation-delay: 0.2s;">
+        <div class="stats-value">100+</div>
+        <div class="stats-label">Licensed Institutions</div>
+      </div>
+    </section>
+    
+    <!-- Button Showcase -->
+    <section class="rbz-grid rbz-grid-3" style="margin-bottom: var(--rbz-spacing-4xl);">
+      <div class="rbz-card" style="text-align: center;">
+        <h3 style="margin-bottom: var(--rbz-spacing-lg); color: var(--rbz-navy);">Primary Actions</h3>
+        <button class="rbz-btn rbz-btn-primary">Apply for License</button>
+      </div>
+      <div class="rbz-card" style="text-align: center;">
+        <h3 style="margin-bottom: var(--rbz-spacing-lg); color: var(--rbz-navy);">Secondary Actions</h3>
+        <button class="rbz-btn rbz-btn-secondary">View Guidelines</button>
+      </div>
+      <div class="rbz-card" style="text-align: center;">
+        <h3 style="margin-bottom: var(--rbz-spacing-lg); color: var(--rbz-navy);">Outline Style</h3>
+        <button class="rbz-btn rbz-btn-outline">Learn More</button>
+      </div>
+    </section>
+    
+  </main>
+  
+  <!-- Footer -->
+  <footer style="background: var(--rbz-navy-dark); color: var(--rbz-white); padding: var(--rbz-spacing-2xl); text-align: center;">
+    <p style="font-size: var(--rbz-text-lg); margin-bottom: var(--rbz-spacing-md);">
+      Reserve Bank of Zimbabwe - <span style="color: var(--rbz-gold-light);">RBZConnect</span>
+    </p>
+    <p style="color: var(--rbz-gray-400); font-size: var(--rbz-text-sm);">
+      Design System Extracted & Enhanced © 2025
+    </p>
+  </footer>
+  
+</body>
+</html>

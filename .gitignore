@@ -1,0 +1,44 @@
+# Common
+.vscode/
+.idea/
+*.log
+.DS_Store
+*.tmp
+
+# Backend (Java/Maven)
+rbz_backend/target/
+rbz_backend/bin/
+rbz_backend/*.class
+rbz_backend/.settings/
+rbz_backend/.classpath
+rbz_backend/.project
+rbz_backend/uploads/
+rbz_backend/application.properties
+# Note: Suggesting to keep a template version of properties
+
+# Frontend (Node/React)
+rbz-frontend/node_modules/
+rbz-frontend/build/
+rbz-frontend/.env
+rbz-frontend/.env.local
+rbz-frontend/npm-debug.log*
+rbz-frontend/yarn-debug.log*
+rbz-frontend/yarn-error.log*
+
+# AI Service (Python)
+rbz_ai/venv/
+rbz_ai/env/
+rbz_ai/__pycache__/
+rbz_ai/*.pyc
+rbz_ai/.env
+rbz_ai/instance/
+rbz_ai/htmlcov/
+rbz_ai/.pytest_cache/
+
+# Data and Assets
+*.pdf
+*.docx
+*.zip
+*.jar
+*.war
+/database_verification_*.sql
