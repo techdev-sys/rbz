@@ -1,0 +1,381 @@
+/* ========== FLOATING CIRCULAR PROGRESS ========== */
+
+.rbz-circular-progress-float {
+    position: fixed;
+    bottom: 30px;
+    right: 30px;
+    width: 80px;
+    height: 80px;
+    cursor: pointer;
+    z-index: 999;
+    transition: all var(--rbz-transition-base);
+    animation: float 3s ease-in-out infinite;
+}
+
+.rbz-circular-progress-float:hover {
+    transform: scale(1.1) translateY(-5px);
+    filter: drop-shadow(0 8px 20px rgba(59, 130, 246, 0.6));
+}
+
+.rbz-circular-progress-float svg {
+    filter: drop-shadow(0 6px 16px rgba(59, 130, 246, 0.8));
+}
+
+.rbz-progress-circle {
+    transition: stroke-dashoffset 0.5s ease-in-out;
+}
+
+.rbz-progress-percentage {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 20px;
+    font-weight: var(--rbz-weight-extrabold);
+    color: var(--rbz-white);
+    text-shadow: 0 2px 8px rgba(0, 0, 0, 0.5), 0 0 20px rgba(59, 130, 246, 0.8);
+    pointer-events: none;
+}
+
+.rbz-progress-pulse {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(59, 130, 246, 0.5) 0%, transparent 70%);
+    animation: pulse 2s ease-in-out infinite;
+    pointer-events: none;
+}
+
+@keyframes pulse {
+
+    0%,
+    100% {
+        opacity: 1;
+        transform: scale(1);
+    }
+
+    50% {
+        opacity: 0.5;
+        transform: scale(1.2);
+    }
+}
+
+@keyframes float {
+
+    0%,
+    100% {
+        transform: translateY(0px);
+    }
+
+    50% {
+        transform: translateY(-10px);
+    }
+}
+
+/* ========== MODAL BACKDROP ========== */
+
+.rbz-progress-modal-backdrop {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(26, 26, 77, 0.9);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    z-index: 1060;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    animation: fadeIn 0.3s ease-out;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+    }
+
+    to {
+        opacity: 1;
+    }
+}
+
+/* ========== MODAL ========== */
+
+.rbz-progress-modal {
+    background: var(--rbz-white);
+    border-radius: var(--rbz-radius-2xl);
+    padding: var(--rbz-spacing-3xl);
+    max-width: 600px;
+    width: 90%;
+    box-shadow: var(--rbz-shadow-2xl);
+    position: relative;
+    animation: slideUp 0.3s ease-out;
+}
+
+@keyframes slideUp {
+    from {
+        opacity: 0;
+        transform: translateY(50px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.rbz-modal-close {
+    position: absolute;
+    top: var(--rbz-spacing-lg);
+    right: var(--rbz-spacing-lg);
+    width: 40px;
+    height: 40px;
+    border: none;
+    background: var(--rbz-gray-100);
+    border-radius: var(--rbz-radius-full);
+    color: var(--rbz-gray-600);
+    font-size: 24px;
+    cursor: pointer;
+    transition: all var(--rbz-transition-base);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    line-height: 1;
+}
+
+.rbz-modal-close:hover {
+    background: var(--rbz-gray-200);
+    transform: rotate(90deg);
+    color: var(--rbz-gray-900);
+}
+
+.rbz-modal-content {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--rbz-spacing-2xl);
+}
+
+/* ========== LARGE CIRCULAR PROGRESS ========== */
+
+.rbz-circular-progress-large {
+    position: relative;
+    width: 200px;
+    height: 200px;
+}
+
+.rbz-progress-circle-large {
+    transition: stroke-dashoffset 0.8s ease-in-out;
+}
+
+.rbz-progress-percentage-large {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    text-align: center;
+}
+
+.percentage-value {
+    font-size: 48px;
+    font-weight: var(--rbz-weight-extrabold);
+    background: var(--rbz-gradient-gold);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    line-height: 1;
+    margin-bottom: 8px;
+}
+
+.percentage-label {
+    font-size: 14px;
+    color: var(--rbz-gray-600);
+    font-weight: var(--rbz-weight-semibold);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+/* ========== MODAL DETAILS ========== */
+
+.rbz-modal-details {
+    width: 100%;
+    text-align: center;
+}
+
+.rbz-modal-title {
+    font-size: var(--rbz-text-3xl);
+    font-weight: var(--rbz-weight-bold);
+    color: var(--rbz-navy-dark);
+    margin-bottom: var(--rbz-spacing-xl);
+}
+
+.rbz-current-stage {
+    background: var(--rbz-gradient-purple);
+    padding: var(--rbz-spacing-lg);
+    border-radius: var(--rbz-radius-xl);
+    margin-bottom: var(--rbz-spacing-xl);
+    border-left: 4px solid var(--rbz-gold);
+}
+
+.stage-label {
+    font-size: var(--rbz-text-sm);
+    color: var(--rbz-gray-600);
+    font-weight: var(--rbz-weight-semibold);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: var(--rbz-spacing-sm);
+}
+
+.stage-value {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.stage-number {
+    font-size: var(--rbz-text-xl);
+    font-weight: var(--rbz-weight-bold);
+    color: var(--rbz-gold-dark);
+}
+
+.stage-name {
+    font-size: var(--rbz-text-lg);
+    color: var(--rbz-navy);
+    font-weight: var(--rbz-weight-semibold);
+}
+
+/* ========== STATS ========== */
+
+.rbz-progress-stats {
+    display: flex;
+    justify-content: space-around;
+    align-items: center;
+    margin-bottom: var(--rbz-spacing-xl);
+    padding: var(--rbz-spacing-lg);
+    background: var(--rbz-gray-50);
+    border-radius: var(--rbz-radius-xl);
+}
+
+.stat-item {
+    text-align: center;
+}
+
+.stat-value {
+    font-size: var(--rbz-text-4xl);
+    font-weight: var(--rbz-weight-extrabold);
+    color: var(--rbz-navy);
+    line-height: 1;
+    margin-bottom: 8px;
+}
+
+.stat-label {
+    font-size: var(--rbz-text-sm);
+    color: var(--rbz-gray-600);
+    font-weight: var(--rbz-weight-medium);
+}
+
+.stat-divider {
+    width: 1px;
+    height: 50px;
+    background: var(--rbz-gray-300);
+}
+
+/* ========== PROGRESS BAR ========== */
+
+.rbz-progress-bar-modal {
+    margin-bottom: var(--rbz-spacing-xl);
+}
+
+.progress-bar-track {
+    height: 12px;
+    background: var(--rbz-gray-200);
+    border-radius: var(--rbz-radius-full);
+    overflow: hidden;
+    position: relative;
+}
+
+.progress-bar-fill {
+    height: 100%;
+    background: var(--rbz-gradient-gold);
+    border-radius: var(--rbz-radius-full);
+    transition: width var(--rbz-transition-slow);
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    padding-right: 12px;
+    position: relative;
+}
+
+.progress-bar-label {
+    font-size: 10px;
+    color: var(--rbz-white);
+    font-weight: var(--rbz-weight-bold);
+    white-space: nowrap;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+}
+
+/* ========== MODAL BUTTON ========== */
+
+.rbz-modal-button {
+    background: var(--rbz-gradient-gold);
+    color: var(--rbz-white);
+    border: none;
+    padding: var(--rbz-spacing-md) var(--rbz-spacing-3xl);
+    border-radius: var(--rbz-radius-xl);
+    font-size: var(--rbz-text-lg);
+    font-weight: var(--rbz-weight-semibold);
+    cursor: pointer;
+    box-shadow: var(--rbz-shadow-gold);
+    transition: all var(--rbz-transition-base);
+    width: 100%;
+}
+
+.rbz-modal-button:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--rbz-shadow-xl);
+}
+
+.rbz-modal-button:active {
+    transform: translateY(0);
+}
+
+/* ========== RESPONSIVE ========== */
+
+@media (max-width: 768px) {
+    .rbz-circular-progress-float {
+        bottom: 20px;
+        right: 20px;
+        width: 70px;
+        height: 70px;
+    }
+
+    .rbz-progress-percentage {
+        font-size: 16px;
+    }
+
+    .rbz-progress-modal {
+        padding: var(--rbz-spacing-xl);
+        width: 95%;
+    }
+
+    .rbz-circular-progress-large {
+        width: 150px;
+        height: 150px;
+    }
+
+    .percentage-value {
+        font-size: 36px;
+    }
+
+    .rbz-modal-title {
+        font-size: var(--rbz-text-2xl);
+    }
+
+    .stat-value {
+        font-size: var(--rbz-text-3xl);
+    }
+}
