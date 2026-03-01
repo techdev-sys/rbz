@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Button, Card, Container, Alert, Spinner, Badge, Modal, Form, Row, Col } from 'react-bootstrap';
-import { generateReport, getReport, submitReport, approveReport } from '../services/api';
+import { generateReport, getReport, submitReport, reviewReport, recommendReport, approveReport } from '../services/api';
 
 const ReportGeneration = () => {
     const [companyId] = useState(localStorage.getItem('currentCompanyId'));
@@ -9,7 +9,8 @@ const ReportGeneration = () => {
     const [reportHTML, setReportHTML] = useState('');
     const [reportData, setReportData] = useState(null);
     const [showApprovalModal, setShowApprovalModal] = useState(false);
-    const user_role = localStorage.getItem('userRole') || 'examiner'; // examiner, senior, principal, registrar
+    const user_role = localStorage.getItem('userRole') || 'examiner'; // examiner, senior_be
+    const userName = localStorage.getItem('examinerUsername') || (user_role === 'senior_be' ? 'Deputy Director' : 'Bank Examiner');
 
     const [approvalForm, setApprovalForm] = useState({
         preparedBy: '',
@@ -97,13 +98,45 @@ const ReportGeneration = () => {
         try {
             await approveReport(companyId, {
                 finalApprovalStatus: status,
-                approvedBy: 'P. T. Madamombe',
+                approvedBy: userName,
                 approvalComments: 'Processed through RBZ Licensing System'
             });
             await loadExistingReport();
             alert(`Report ${status}!`);
         } catch (err) {
             setError(err.response?.data || 'Failed to approve report');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleReview = async () => {
+        setLoading(true);
+        try {
+            await reviewReport(companyId, {
+                reviewedBy: userName,
+                reviewedByDesignation: 'Senior Bank Examiner'
+            });
+            await loadExistingReport();
+            alert('Report marked as reviewed.');
+        } catch (err) {
+            setError(err.response?.data || 'Failed to review report');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleRecommend = async () => {
+        setLoading(true);
+        try {
+            await recommendReport(companyId, {
+                recommendedBy: userName,
+                recommendedByDesignation: 'Senior Bank Examiner'
+            });
+            await loadExistingReport();
+            alert('Report recommended for approval.');
+        } catch (err) {
+            setError(err.response?.data || 'Failed to recommend report');
         } finally {
             setLoading(false);
         }
@@ -200,7 +233,19 @@ const ReportGeneration = () => {
                                     </Button>
                                 )}
 
-                                {reportData && reportData.workflowStatus === 'PENDING_APPROVAL' && user_role === 'registrar' && (
+                                {reportData && (reportData.workflowStatus === 'SUBMITTED' || reportData.workflowStatus === 'UNDER_REVIEW') && user_role === 'senior_be' && (
+                                    <Button variant="info" onClick={handleReview}>
+                                        🔍 Mark as Reviewed
+                                    </Button>
+                                )}
+
+                                {reportData && (reportData.workflowStatus === 'SUBMITTED' || reportData.workflowStatus === 'UNDER_REVIEW') && user_role === 'senior_be' && (
+                                    <Button variant="primary" onClick={handleRecommend}>
+                                        📝 Recommend for Approval
+                                    </Button>
+                                )}
+
+                                {reportData && ['SUBMITTED', 'UNDER_REVIEW', 'PENDING_APPROVAL'].includes(reportData.workflowStatus) && user_role === 'senior_be' && (
                                     <>
                                         <Button variant="success" onClick={() => handleApprove('APPROVED')}>
                                             ✅ Approve License

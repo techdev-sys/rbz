@@ -1,6 +1,7 @@
 package com.rbz.licensingsystem.controller;
 
 import com.rbz.licensingsystem.model.CompanyProfile;
+import com.rbz.licensingsystem.repository.CompanyProfileRepository;
 import com.rbz.licensingsystem.service.CompanyProfileService;
 import com.rbz.licensingsystem.service.AIService;
 import com.rbz.licensingsystem.service.LearningService;
@@ -10,7 +11,10 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.time.LocalDate;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/company")
@@ -20,13 +24,15 @@ public class CompanyProfileController {
     private final CompanyProfileService companyProfileService;
     private final AIService aiService;
     private final LearningService learningService;
+    private final CompanyProfileRepository companyProfileRepository;
 
     @Autowired
     public CompanyProfileController(CompanyProfileService companyProfileService, AIService aiService,
-            LearningService learningService) {
+            LearningService learningService, CompanyProfileRepository companyProfileRepository) {
         this.companyProfileService = companyProfileService;
         this.aiService = aiService;
         this.learningService = learningService;
+        this.companyProfileRepository = companyProfileRepository;
     }
 
     // === 1. SAVE PROFILE (Text Data) ===
@@ -152,5 +158,76 @@ public class CompanyProfileController {
     @GetMapping("/assigned/{examinerName}")
     public List<CompanyProfile> getAssignedApplications(@PathVariable String examinerName) {
         return companyProfileService.getAssignedCompanyProfiles("ASSIGNED", examinerName);
+    }
+
+    /**
+     * Generate license code for an approved application
+     * Format: PREFIX/YEAR/SEQ (e.g. MFI/2026/001)
+     */
+    @PostMapping("/{id}/generate-license-code")
+    public ResponseEntity<?> generateLicenseCode(@PathVariable Long id) {
+        try {
+            CompanyProfile company = companyProfileService.getCompanyProfileById(id)
+                    .orElseThrow(() -> new RuntimeException("Company not found"));
+
+            if (company.getLicenseNumber() != null && !company.getLicenseNumber().isEmpty()) {
+                return ResponseEntity.ok(Map.of(
+                    "licenseCode", company.getLicenseNumber(),
+                    "message", "License code already exists",
+                    "alreadyGenerated", true
+                ));
+            }
+
+            // Determine prefix from license type
+            String licenseType = company.getLicenseType();
+            String prefix;
+            if (licenseType == null) licenseType = "";
+            switch (licenseType.toUpperCase()) {
+                case "DEPOSIT-TAKING":
+                case "DEPOSIT_TAKING":
+                    prefix = "DTB";
+                    break;
+                case "CREDIT-ONLY":
+                case "CREDIT_ONLY":
+                    prefix = "COL";
+                    break;
+                case "MICROFINANCE":
+                default:
+                    prefix = "MFI";
+                    break;
+            }
+
+            int year = LocalDate.now().getYear();
+            long existingCount = companyProfileRepository.countByLicenseTypeAndLicenseNumberIsNotNull(
+                    company.getLicenseType() != null ? company.getLicenseType() : "");
+            // Fallback: count all licenses if type-specific count is 0
+            if (existingCount == 0) {
+                existingCount = companyProfileRepository.countByLicenseNumberIsNotNull();
+            }
+            long seq = existingCount + 1;
+            String licenseCode = String.format("%s/%d/%03d", prefix, year, seq);
+
+            company.setLicenseNumber(licenseCode);
+            company.setLicenseGrantedDate(LocalDate.now());
+            companyProfileService.saveCompanyProfile(company);
+
+            log.info("✅ License code generated: {} for {}", licenseCode, company.getCompanyName());
+
+            learningService.captureEvent("SENIOR", "SYSTEM", id,
+                    "LICENSE_GRANTED", "License code generated: " + licenseCode, "");
+
+            Map<String, Object> response = new HashMap<>();
+            response.put("licenseCode", licenseCode);
+            response.put("companyName", company.getCompanyName());
+            response.put("licenseType", company.getLicenseType());
+            response.put("grantedDate", company.getLicenseGrantedDate());
+            response.put("message", "License code generated successfully");
+            response.put("alreadyGenerated", false);
+
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            log.error("❌ Failed to generate license code", e);
+            return ResponseEntity.badRequest().body("Failed to generate license code: " + e.getMessage());
+        }
     }
 }

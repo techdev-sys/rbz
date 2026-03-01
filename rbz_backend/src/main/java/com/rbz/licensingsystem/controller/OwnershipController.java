@@ -63,6 +63,19 @@ public class OwnershipController {
     }
 
     /**
+     * Delete a shareholder entry
+     */
+    @DeleteMapping("/shareholders/{id}")
+    public ResponseEntity<?> deleteShareholder(@PathVariable Long id) {
+        return shareholderRepository.findById(id).map(shareholder -> {
+            shareholderRepository.delete(shareholder);
+            learningService.captureEvent("APPLICANT", "SEC_OFFICER", shareholder.getCompanyId(),
+                    "SHAREHOLDER_REMOVE", "Removed shareholder: " + shareholder.getFullName(), "");
+            return ResponseEntity.ok().build();
+        }).orElse(ResponseEntity.notFound().build());
+    }
+
+    /**
      * Upload application form for a shareholder
      */
     @PostMapping("/{shareholderId}/upload-application-form")
@@ -145,22 +158,42 @@ public class OwnershipController {
     }
 
     /**
-     * Upload board resolution (par value confirmation)
+     * Upload generic company-level document
      */
-    @PostMapping("/{companyId}/upload-board-resolution")
-    public ResponseEntity<Map<String, String>> uploadBoardResolution(
+    @PostMapping("/{companyId}/upload-document/{docType}")
+    public ResponseEntity<Map<String, String>> uploadCompanyDocumentGeneric(
             @PathVariable Long companyId,
+            @PathVariable String docType,
             @RequestParam("file") MultipartFile file) throws IOException {
 
-        String path = saveFile(file, "board-resolution");
+        String path = saveFile(file, docType);
 
         learningService.captureEvent("APPLICANT", "SEC_OFFICER", companyId,
-                "DOC_UPLOAD", "Uploaded Board Resolution", "");
+                "DOC_UPLOAD", "Uploaded " + docType, "");
 
         Map<String, String> response = new HashMap<>();
         response.put("path", path);
-        response.put("message", "Board resolution uploaded successfully");
+        response.put("message", docType + " uploaded successfully");
         return ResponseEntity.ok(response);
+    }
+
+    /**
+     * Upload generic shareholder document
+     */
+    @PostMapping("/{shareholderId}/upload-shareholder-document/{docType}")
+    public ResponseEntity<Shareholder> uploadShareholderDocumentGeneric(
+            @PathVariable Long shareholderId,
+            @PathVariable String docType,
+            @RequestParam("file") MultipartFile file) throws IOException {
+
+        String path = saveFile(file, docType);
+        Shareholder shareholder = shareholderRepository.findById(shareholderId)
+                .orElseThrow(() -> new RuntimeException("Shareholder not found"));
+
+        learningService.captureEvent("APPLICANT", "SEC_OFFICER", shareholder.getCompanyId(),
+                "DOC_UPLOAD", "Uploaded " + docType + " for " + shareholder.getFullName(), "");
+
+        return ResponseEntity.ok(shareholder);
     }
 
     /**

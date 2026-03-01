@@ -11,4 +11,12 @@ public interface CompanyProfileRepository extends JpaRepository<CompanyProfile, 
     List<CompanyProfile> findByApplicationStatus(String applicationStatus);
 
     List<CompanyProfile> findByApplicationStatusAndAssignedExaminer(String applicationStatus, String assignedExaminer);
+
+    java.util.Optional<CompanyProfile> findByEmailAddress(String emailAddress);
+
+    long countByAssignedExaminer(String assignedExaminer);
+
+    long countByLicenseNumberIsNotNull();
+
+    long countByLicenseTypeAndLicenseNumberIsNotNull(String licenseType);
 }

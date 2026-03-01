@@ -43,6 +43,12 @@ const ApplicantRegistration = ({ onRegistered, onCancel }) => {
                 applicationStatus: 'DRAFT'
             });
 
+            // Store institution details in localStorage so the system remembers them
+            localStorage.setItem('institutionName', formData.companyName);
+            localStorage.setItem('applicantName', formData.contactPersonName);
+            localStorage.setItem('applicantEmail', formData.emailAddress);
+            localStorage.setItem('licenseType', formData.licenseType);
+
             // Pass the new ID back to parent to start the wizard
             onRegistered(response.data.id);
         } catch (err) {

@@ -2,15 +2,103 @@ import axios from 'axios';
 
 export const API_URL = "http://localhost:8080/api";
 
+// --- AXIOS INTERCEPTOR FOR JWT ---
+axios.interceptors.request.use(
+    (config) => {
+        const token = localStorage.getItem('jwtToken');
+        if (token) {
+            config.headers['Authorization'] = `Bearer ${token}`;
+        }
+        return config;
+    },
+    (error) => {
+        return Promise.reject(error);
+    }
+);
+
+axios.interceptors.response.use(
+    (response) => response,
+    (error) => {
+        if (error.response && (error.response.status === 401 || error.response.status === 403)) {
+            // Clear invalid token to escape infinite 401/403 loops
+            localStorage.removeItem('jwtToken');
+            localStorage.removeItem('userRole');
+            localStorage.removeItem('currentCompanyId');
+            localStorage.removeItem('examinerUsername');
+
+            // Redirect to home page if not already there
+            const path = window.location.pathname;
+            if (path !== '/' && path !== '/auth' && path !== '/staff-login') {
+                window.location.href = '/';
+            }
+        }
+        return Promise.reject(error);
+    }
+);
+
+// --- AUTHENTICATION ---
+export const authenticateUser = async (role, username, password) => {
+    // For examiner, use provided credentials
+    // For applicant/senior_be, use mock credentials
+    let user = username;
+    let pass = password || "password";
+
+    if (!username) {
+        if (role === "examiner") {
+            // Examiner requires real credentials — this should not be called without them
+            user = "pta";
+        } else if (role === "senior_be") {
+            user = "dd_be";
+        }
+    }
+
+    return axios.post(`${API_URL}/auth/login`, { username: user, password: pass, role });
+};
+
+// --- EXAMINER MANAGEMENT (Senior BE) ---
+
+export const createExaminer = async (examinerData) => {
+    return axios.post(`${API_URL}/examiners`, examinerData);
+};
+
+export const getExaminers = async () => {
+    return axios.get(`${API_URL}/examiners`);
+};
+
+export const getActiveExaminers = async () => {
+    return axios.get(`${API_URL}/examiners/active`);
+};
+
+export const updateExaminer = async (id, data) => {
+    return axios.put(`${API_URL}/examiners/${id}`, data);
+};
+
+export const deleteExaminer = async (id) => {
+    return axios.delete(`${API_URL}/examiners/${id}`);
+};
+
+export const getExaminerWorkload = async (id) => {
+    return axios.get(`${API_URL}/examiners/${id}/workload`);
+};
+
+// --- LICENSE CODE GENERATION ---
+
+export const generateLicenseCode = async (companyId) => {
+    return axios.post(`${API_URL}/company/${companyId}/generate-license-code`);
+};
+
 // --- STAGE 1: COMPANY PROFILE ---
 
 export const createCompanyProfile = async (companyData) => {
     return axios.post(`${API_URL}/company/save`, companyData);
 };
 
-
 export const getCompanyProfile = async (companyId) => {
     return axios.get(`${API_URL}/company/${companyId}`);
+};
+
+export const getAllCompanyProfiles = async () => {
+    return axios.get(`${API_URL}/company`);
 };
 
 // --- WORKFLOW API ---
@@ -54,6 +142,10 @@ export const addShareholderManual = async (companyId, shareholderData) => {
     return axios.post(`${API_URL}/ownership/manual-entry/${companyId}`, shareholderData);
 };
 
+export const deleteShareholder = async (shareholderId) => {
+    return axios.delete(`${API_URL}/ownership/shareholders/${shareholderId}`);
+};
+
 export const validateOwnershipCompliance = async (companyId) => {
     return axios.get(`${API_URL}/ownership/validate-compliance/${companyId}`);
 };
@@ -81,7 +173,8 @@ export const uploadShareholderDocument = async (shareholderId, documentType, fil
             endpoint = 'upload-application-letter';
             break;
         default:
-            throw new Error(`Unknown document type: ${documentType}`);
+            endpoint = `upload-shareholder-document/${documentType}`;
+            break;
     }
 
     return axios.post(`${API_URL}/ownership/${shareholderId}/${endpoint}`, formData, {
@@ -102,7 +195,8 @@ export const uploadCompanyOwnershipDocument = async (companyId, documentType, fi
             endpoint = 'upload-board-resolution';
             break;
         default:
-            throw new Error(`Unknown document type: ${documentType}`);
+            endpoint = `upload-document/${documentType}`;
+            break;
     }
 
     return axios.post(`${API_URL}/ownership/${companyId}/${endpoint}`, formData, {
@@ -304,4 +398,32 @@ export const recommendReport = async (companyId, recommendData) => {
 
 export const approveReport = async (companyId, approvalData) => {
     return axios.post(`${API_URL}/mfi-report/approve/${companyId}`, approvalData);
+};
+
+// --- SENIOR EXAMINER REPORT REVIEW ---
+
+export const getPendingReviewReports = async () => {
+    return axios.get(`${API_URL}/mfi-report/pending-review`);
+};
+
+export const getReportsByStatus = async (status) => {
+    return axios.get(`${API_URL}/mfi-report/by-status/${status}`);
+};
+
+// --- EXAMINER REVIEW ---
+
+export const getCompanyDocuments = async (companyId) => {
+    return axios.get(`${API_URL}/documents/${companyId}`);
+};
+
+export const getDocumentExtractionStatus = async (companyId) => {
+    return axios.get(`${API_URL}/documents/status/${companyId}`);
+};
+
+export const getStageReviews = async (companyId) => {
+    return axios.get(`${API_URL}/review/${companyId}`);
+};
+
+export const saveStageReview = async (reviewData) => {
+    return axios.post(`${API_URL}/review/save`, reviewData);
 };

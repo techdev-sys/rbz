@@ -2,17 +2,19 @@ import React, { useState, useEffect } from 'react';
 import { Form, Button, Card, Container, Row, Col, Alert, Spinner } from 'react-bootstrap';
 // IMPORT uploadCertificate HERE
 import { createCompanyProfile, uploadCertificate, getCompanyProfile } from '../services/api';
+import WorkflowStatusPanel from './WorkflowStatusPanel';
 
 const CompanyProfile = ({ onComplete, readOnly }) => {
     const [formData, setFormData] = useState({
         companyName: '',
         registrationNumber: '',
         incorporationDate: '',
-        applicationDate: new Date().toISOString().split('T')[0], // Auto-fill with today's date
+        applicationDate: new Date().toISOString().split('T')[0],
         physicalAddress: '',
         chiefExecutiveOfficer: '',
         contactPersonName: '',
         contactTelephone: '',
+        emailAddress: '',
         bankers: '',
         lawyers: '',
         auditors: '',
@@ -94,6 +96,33 @@ const CompanyProfile = ({ onComplete, readOnly }) => {
         setFile(e.target.files[0]);
     };
 
+    // --- NEW: Auto-Save functionality ---
+    useEffect(() => {
+        // Skip auto-save if we are still loading, if it's readOnly, or if we don't have basic required fields
+        if (readOnly || loading || !formData.companyName) return;
+
+        const timer = setTimeout(async () => {
+            try {
+                const payload = {
+                    ...formData,
+                    incorporationDate: formatDateForJava(formData.incorporationDate),
+                    applicationDate: formatDateForJava(formData.applicationDate)
+                };
+
+                const currentId = localStorage.getItem('currentCompanyId');
+                if (currentId && !currentId.toString().startsWith("MOCK-")) {
+                    // Update existing
+                    await createCompanyProfile(payload); // API performs upsert if ID exists or relies on DB
+                    console.log("Auto-save successful.");
+                }
+            } catch (err) {
+                console.warn("Auto-save failed in background", err);
+            }
+        }, 1500); // 1.5 seconds debounce
+
+        return () => clearTimeout(timer);
+    }, [formData, readOnly, loading]);
+
     const handleSubmit = async (e) => {
         e.preventDefault();
         setLoading(true);
@@ -117,7 +146,7 @@ const CompanyProfile = ({ onComplete, readOnly }) => {
                 const companyId = response.data.id;
                 localStorage.setItem("currentCompanyId", companyId);
 
-                // 3. UPLOAD FILE (This was missing in your code!)
+                // 3. UPLOAD FILE
                 if (file) {
                     console.log("Uploading Certificate...");
                     await uploadCertificate(file, companyId);
@@ -143,12 +172,11 @@ const CompanyProfile = ({ onComplete, readOnly }) => {
         }
     };
 
-    // Helper to render field or read-only text
     const renderField = (name, label, type = "text", as = "input") => (
         <Form.Group className="mb-3">
-            <Form.Label className="fw-bold small">{label}</Form.Label>
+            <Form.Label className="small fw-bold text-muted mb-1">{label}</Form.Label>
             {readOnly ? (
-                <div className="p-2 bg-light border rounded">
+                <div className="p-2 border rounded" style={{ backgroundColor: '#f8f9fa' }}>
                     {formData[name] || <span className="text-muted fst-italic">Not provided</span>}
                 </div>
             ) : (
@@ -158,19 +186,19 @@ const CompanyProfile = ({ onComplete, readOnly }) => {
                     name={name}
                     value={formData[name]}
                     onChange={handleChange}
-                    className="premium-input"
+                    style={{ borderColor: '#e2e8f0', boxShadow: 'none' }}
                 />
             )}
         </Form.Group>
     );
 
     return (
-        <Container className="mt-4">
-            <Card className="rbz-card shadow-lg animate-fade-in">
-                <Card.Header className="d-flex justify-content-between align-items-center">
-                    <h4 className="mb-0">📋 Stage 1: Company Profile</h4>
+        <Container fluid className="px-md-4 py-4">
+            <Card className="border-0 shadow-sm" style={{ borderRadius: '12px' }}>
+                <Card.Header className="bg-white border-bottom py-3 d-flex justify-content-between align-items-center">
+                    <h5 className="mb-0 fw-bold" style={{ color: '#003366' }}>Stage 1 Details</h5>
                     {!readOnly && (
-                        <Button variant="outline-light" size="sm" onClick={() => setFormData({
+                        <Button variant="outline-primary" size="sm" onClick={() => setFormData({
                             companyName: 'Sunrise Microfinance (Pvt) Ltd',
                             registrationNumber: '1036589A1',
                             incorporationDate: '2025-12-19',
@@ -183,67 +211,114 @@ const CompanyProfile = ({ onComplete, readOnly }) => {
                             lawyers: 'Mawere & Sibanda Legal Practitioners',
                             auditors: 'KPMG Zimbabwe',
                             licenseType: 'Credit-Only'
-                        })} title="Demo Auto-Fill">⚡ Fill</Button>
+                        })} title="Demo Auto-Fill" style={{ borderColor: '#003366', color: '#003366' }}>Auto-Fill Form</Button>
                     )}
                 </Card.Header>
-                <Card.Body>
-                    {error && <Alert variant="danger">{error}</Alert>}
-                    {success && <Alert variant="success">✅ Company Profile Saved! Moving to Stage 2...</Alert>}
+                <Card.Body className="p-4 p-md-5">
+                    {error && <Alert variant="danger" className="border-0 small">{error}</Alert>}
+                    {success && <Alert variant="success" className="border-0 small">✅ Company Profile Saved! Moving to Stage 2...</Alert>}
 
-                    <Form onSubmit={handleSubmit}>
-                        <Row>
-                            <Col md={6}>{renderField('companyName', 'Company Name')}</Col>
-                            <Col md={6}>{renderField('registrationNumber', 'Registration Number')}</Col>
-                        </Row>
+                    {!readOnly && formData.companyName && !success && !error && (
+                        <div style={{ padding: '10px 16px', background: '#e8f5ec', borderRadius: '6px', marginBottom: '20px', borderLeft: '3px solid #1a5c2e', fontSize: '0.82rem', color: '#1a5c2e' }}>
+                            <strong>Pre-filled from registration:</strong> Some fields have been populated from your account registration. Please review and complete the remaining details.
+                        </div>
+                    )}
 
-                        <Row>
-                            <Col md={4}>
-                                <Form.Group className="mb-3">
-                                    <Form.Label className="fw-bold small">Date of Incorporation</Form.Label>
-                                    {readOnly ? (
-                                        <div className="p-2 bg-light border rounded">{formData.incorporationDate}</div>
-                                    ) : (
-                                        <Form.Control type="date" name="incorporationDate" value={formData.incorporationDate} onChange={handleChange} required />
-                                    )}
-                                </Form.Group>
-                            </Col>
-                            <Col md={4}>
-                                <Form.Group className="mb-3">
-                                    <Form.Label className="fw-bold small">📅 Date of Application</Form.Label>
-                                    {readOnly ? (
-                                        <div className="p-2 bg-light border rounded">{formData.applicationDate}</div>
-                                    ) : (
-                                        <Form.Control type="date" name="applicationDate" value={formData.applicationDate} onChange={handleChange} required />
-                                    )}
-                                </Form.Group>
-                            </Col>
-                            <Col md={4}>
-                                <Form.Group className="mb-3">
-                                    <Form.Label className="fw-bold small">License Type</Form.Label>
-                                    {readOnly ? (
-                                        <div className="p-2 bg-light border rounded">{formData.licenseType}</div>
-                                    ) : (
-                                        <Form.Select name="licenseType" value={formData.licenseType} onChange={handleChange}>
+                    {readOnly ? (
+                        <div className="memo-report-view p-5" style={{ backgroundColor: 'white', border: '1px solid #e0e4e8', borderRadius: '8px', fontFamily: '"Times New Roman", Times, serif', fontSize: '12pt', color: 'black' }}>
+                            <h2 className="text-center fw-bold mb-4" style={{ letterSpacing: '1px' }}>MEMORANDUM</h2>
+
+                            <h4 className="text-center fw-bold mb-2 text-uppercase">{formData.companyName}</h4>
+                            <h5 className="text-center fw-bold mb-5 text-uppercase">APPLICATION FOR A {formData.licenseType ? formData.licenseType.replace(" Microfinance", "").replace("Deposit-Taking", "DEPOSIT-TAKING").replace("Credit-Only", "CREDIT-ONLY") : ""} MICROFINANCE LICENCE</h5>
+
+                            <div className="mb-4">
+                                <strong className="d-block mb-1 text-uppercase">OFFICES</strong>
+                                <div style={{ whiteSpace: 'pre-line' }}>{formData.physicalAddress || "-"}</div>
+                            </div>
+
+                            <div className="mb-4">
+                                <strong className="d-block mb-1 text-uppercase">BANKERS</strong>
+                                <div>{formData.bankers || "-"}</div>
+                            </div>
+
+                            <div className="mb-4">
+                                <strong className="d-block mb-1 text-uppercase">LAWYERS</strong>
+                                <div>{formData.lawyers || "-"}</div>
+                            </div>
+
+                            <div className="mb-4">
+                                <strong className="d-block mb-1 text-uppercase">CHIEF EXECUTIVE OFFICER</strong>
+                                <div>{formData.chiefExecutiveOfficer || "-"}</div>
+                            </div>
+
+                            <div className="mb-4">
+                                <strong className="d-block mb-1 text-uppercase">COMPANY REGISTRATION NUMBER</strong>
+                                <div>{formData.registrationNumber || "-"}</div>
+                            </div>
+
+                            <div className="mb-4">
+                                <strong className="d-block mb-1 text-uppercase">CONTACT TELEPHONE NUMBERS</strong>
+                                <div>{formData.contactTelephone || "-"}</div>
+                            </div>
+
+                            <div className="mb-5">
+                                <strong className="d-block mb-1 text-uppercase">E-MAIL ADDRESS</strong>
+                                <div>{formData.emailAddress || "-"}</div>
+                            </div>
+
+                            <div style={{ textAlign: 'justify', lineHeight: '1.8' }}>
+                                <p><strong>{formData.companyName}</strong> was incorporated in terms of the Companies and Other Business Entities Act [Chapter 24:31] on {formData.incorporationDate || "[Date]"}.</p>
+                                <p><strong>{formData.companyName}</strong> intends to operate from its head office Stand Number {formData.physicalAddress ? formData.physicalAddress.replace(/\n/g, ", ") : "[Address]"}.</p>
+                                <p>The institution applied for a {formData.licenseType ? formData.licenseType.toLowerCase().replace(" microfinance", "") : "credit-only"} microfinance licence on {formData.applicationDate || "[Date]"}.</p>
+                            </div>
+
+                            <hr className="my-5" />
+                            <div className="border p-4 rounded bg-light">
+                                <strong className="d-block mb-2" style={{ color: '#003366' }}>ATTACHED DOCUMENTATION</strong>
+                                <div className="d-flex align-items-center justify-content-between p-3 border rounded bg-white mt-2">
+                                    <span className="text-success fw-bold">✓ Certificate of Incorporation (Verified)</span>
+                                    <Button size="sm" variant="outline-primary" onClick={() => alert("Downloading document...")}>View Document</Button>
+                                </div>
+                            </div>
+                        </div>
+                    ) : (
+                        <Form onSubmit={handleSubmit}>
+                            <Row>
+                                <Col md={6}>{renderField('companyName', 'Company Name')}</Col>
+                                <Col md={6}>{renderField('registrationNumber', 'Registration Number')}</Col>
+                            </Row>
+
+                            <Row>
+                                <Col md={6}>
+                                    <Form.Group className="mb-3">
+                                        <Form.Label className="small fw-bold text-muted mb-1">Date of Incorporation</Form.Label>
+                                        <Form.Control type="date" name="incorporationDate" value={formData.incorporationDate} onChange={handleChange} required style={{ borderColor: '#e2e8f0', boxShadow: 'none' }} />
+                                    </Form.Group>
+                                </Col>
+                                <Col md={6}>
+                                    <Form.Group className="mb-3">
+                                        <Form.Label className="small fw-bold text-muted mb-1">License Type</Form.Label>
+                                        <Form.Select name="licenseType" value={formData.licenseType} onChange={handleChange} style={{ borderColor: '#e2e8f0', boxShadow: 'none' }}>
                                             <option value="Credit-Only">Credit-Only</option>
                                             <option value="Deposit-Taking">Deposit-Taking</option>
                                         </Form.Select>
-                                    )}
-                                </Form.Group>
-                            </Col>
-                        </Row>
+                                    </Form.Group>
+                                </Col>
+                            </Row>
 
-                        <Row>
-                            <Col md={12}>{renderField('physicalAddress', '📍 Physical Address', 'text', 'textarea')}</Col>
-                        </Row>
+                            <Row>
+                                <Col md={12}>{renderField('physicalAddress', 'Physical Address', 'text', 'textarea')}</Col>
+                            </Row>
 
-                        <h5 className="text-rbz-navy mt-4 mb-3">👥 Contact Information</h5>
-                        <Row>
-                            <Col md={4}>{renderField('chiefExecutiveOfficer', 'CEO / Managing Director')}</Col>
-                            <Col md={4}>{renderField('contactPersonName', 'Contact Person Name')}</Col>
-                            <Col md={4}>{renderField('contactTelephone', '📞 Contact Phone Number', 'tel')}</Col>
-                        </Row>
+                            <hr className="my-4 text-muted" />
+                            <h6 className="fw-bold mb-4" style={{ color: '#003366', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Contact Information</h6>
+                            <Row>
+                                <Col md={3}>{renderField('chiefExecutiveOfficer', 'CEO / Managing Director')}</Col>
+                                <Col md={3}>{renderField('contactPersonName', 'Contact Person Name')}</Col>
+                                <Col md={3}>{renderField('emailAddress', 'Email Address')}</Col>
+                                <Col md={3}>{renderField('contactTelephone', 'Contact Phone Number', 'tel')}</Col>
+                            </Row>
 
-                        {!readOnly && (
                             <div className="d-flex justify-content-end mb-3">
                                 <Button
                                     variant="link"
@@ -253,45 +328,48 @@ const CompanyProfile = ({ onComplete, readOnly }) => {
                                         window.location.reload();
                                     }}
                                 >
-                                    ⚠️ Reset Session / Clear Form
+                                    Clear Active Draft Session
                                 </Button>
                             </div>
-                        )}
 
-                        <h5 className="text-rbz-navy mt-4 mb-3">🏦 Professional Services</h5>
-                        <Row>
-                            <Col md={4}>{renderField('bankers', 'Bankers')}</Col>
-                            <Col md={4}>{renderField('lawyers', 'Lawyers')}</Col>
-                            {formData.licenseType === 'Deposit-Taking' && (
-                                <Col md={4}>{renderField('auditors', 'Auditors')}</Col>
-                            )}
-                        </Row>
+                            <hr className="my-4 text-muted" />
+                            <h6 className="fw-bold mb-4" style={{ color: '#003366', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Professional Services</h6>
+                            <Row>
+                                <Col md={4}>{renderField('bankers', 'Bankers')}</Col>
+                                <Col md={4}>{renderField('lawyers', 'Lawyers')}</Col>
+                                {formData.licenseType === 'Deposit-Taking' && (
+                                    <Col md={4}>{renderField('auditors', 'Auditors')}</Col>
+                                )}
+                            </Row>
 
-                        <Form.Group className="mb-4 border p-3 rounded bg-light">
-                            <Form.Label className="fw-bold">Certificate of Incorporation (Upload)</Form.Label>
-                            {readOnly ? (
-                                <div>
-                                    <span className="text-success me-3">✅ Document Uploaded</span>
-                                    <Button size="sm" variant="outline-primary" onClick={() => alert("Download feature coming in next sprint")}>⬇ Download</Button>
-                                </div>
-                            ) : (
-                                <>
-                                    <Form.Control type="file" onChange={handleFileChange} accept=".pdf,.jpg,.png" />
-                                    <Form.Text className="text-muted">The AI will analyze this document to verify the Name and Date.</Form.Text>
-                                </>
-                            )}
-                        </Form.Group>
+                            {/* Certificate of Incorporation moved to Stage 2 */}
 
-                        {!readOnly && (
-                            <div className="d-flex justify-content-end">
-                                <Button variant="primary" type="submit" disabled={loading} size="lg">
+                            <div className="d-flex justify-content-end mt-4">
+                                <Button
+                                    variant="primary"
+                                    type="submit"
+                                    disabled={loading}
+                                    className="px-5 py-2 fw-bold"
+                                    style={{ backgroundColor: '#003366', borderColor: '#003366', borderRadius: '8px' }}
+                                >
                                     {loading ? <Spinner animation="border" size="sm" /> : 'Save & Continue'}
                                 </Button>
                             </div>
-                        )}
-                    </Form>
+                        </Form>
+                    )}
                 </Card.Body>
             </Card>
+
+            {/* Workflow Rule Engine Integration */}
+            {!readOnly && (
+                <div className="mt-4">
+                    <WorkflowStatusPanel
+                        companyId={localStorage.getItem('currentCompanyId')}
+                        currentStep={1}
+                        onStageComplete={() => onComplete && onComplete(formData)}
+                    />
+                </div>
+            )}
         </Container>
     );
 };

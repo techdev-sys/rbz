@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { Form, Button, Card, Container, Row, Col, Alert, Spinner, Badge } from 'react-bootstrap';
+import { Form, Button, Card, Container, Row, Col, Alert, Spinner } from 'react-bootstrap';
 import { saveProductsAndServices, getProductsAndServices } from '../services/api';
+import WorkflowStatusPanel from './WorkflowStatusPanel';
 
 const ProductsAndServices = ({ onComplete }) => {
     const [formData, setFormData] = useState({
@@ -12,7 +13,6 @@ const ProductsAndServices = ({ onComplete }) => {
         minimumTenure: '',
         maximumTenure: '',
         interestRatePerMonth: '',
-        allChargesBreakdown: '',
         allChargesBreakdown: '',
         chargesJustification: ''
     });
@@ -46,6 +46,23 @@ const ProductsAndServices = ({ onComplete }) => {
             [name]: value
         }));
     };
+
+    // --- NEW: Auto-Save Functionality ---
+    useEffect(() => {
+        // Only run auto-save if we have a valid companyId
+        if (!formData.companyId || formData.companyId.toString().startsWith("MOCK-")) return;
+
+        const timer = setTimeout(async () => {
+            try {
+                await saveProductsAndServices(formData);
+                console.log("Auto-save ProductsAndServices successful.");
+            } catch (error) {
+                console.warn("Auto-save ProductsAndServices failed:", error);
+            }
+        }, 1500); // 1.5 second debounce
+
+        return () => clearTimeout(timer);
+    }, [formData]);
 
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -230,11 +247,20 @@ const ProductsAndServices = ({ onComplete }) => {
                             <Button variant="secondary" onClick={() => window.history.back()}>
                                 ← Previous Stage
                             </Button>
-                            <Button variant="primary" type="submit" disabled={loading} size="lg">
-                                {loading ? <Spinner animation="border" size="sm" /> : 'Save & Continue →'}
+                            <Button variant="outline-primary" type="submit" disabled={loading} size="lg">
+                                {loading ? <Spinner animation="border" size="sm" /> : '💾 Save Draft'}
                             </Button>
                         </div>
                     </Form>
+
+                    {/* Workflow Rule Engine Integration */}
+                    <div className="mt-4 mb-4 border-top pt-4">
+                        <WorkflowStatusPanel
+                            companyId={formData.companyId}
+                            currentStep={6}
+                            onStageComplete={onComplete}
+                        />
+                    </div>
                 </Card.Body>
             </Card>
         </Container>

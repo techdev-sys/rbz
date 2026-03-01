@@ -1,13 +1,18 @@
 package com.rbz.licensingsystem.controller;
 
+import com.rbz.licensingsystem.model.CompanyProfile;
 import com.rbz.licensingsystem.model.EvaluationReport;
+import com.rbz.licensingsystem.repository.CompanyProfileRepository;
 import com.rbz.licensingsystem.repository.EvaluationReportRepository;
+import com.rbz.licensingsystem.service.LearningService;
 import com.rbz.licensingsystem.service.MFIReportGenerationService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDateTime;
+import java.util.List;
+import java.util.Arrays;
 
 /**
  * Controller for MFI Evaluation Report Generation and Management
@@ -21,6 +26,12 @@ public class MFIReportController {
 
     @Autowired
     private EvaluationReportRepository evaluationReportRepository;
+
+    @Autowired
+    private CompanyProfileRepository companyProfileRepository;
+
+    @Autowired
+    private LearningService learningService;
 
     /**
      * Generate HTML report for a company
@@ -123,7 +134,7 @@ public class MFIReportController {
     }
 
     /**
-     * Final approval (Registrar)
+     * Final approval (Senior Bank Examiner / Registrar)
      */
     @PostMapping("/approve/{companyId}")
     public ResponseEntity<String> approveReport(
@@ -136,11 +147,42 @@ public class MFIReportController {
                     report.setApprovedBy(approvalData.getApprovedBy());
                     report.setApprovalDate(LocalDateTime.now());
                     report.setApprovalComments(approvalData.getApprovalComments());
-                    report.setWorkflowStatus(
-                            "APPROVED".equals(approvalData.getFinalApprovalStatus()) ? "APPROVED" : "REJECTED");
+                    String newStatus = "APPROVED".equals(approvalData.getFinalApprovalStatus()) ? "APPROVED" : "REJECTED";
+                    report.setWorkflowStatus(newStatus);
                     evaluationReportRepository.save(report);
-                    return ResponseEntity.ok("Report " + report.getWorkflowStatus().toLowerCase());
+
+                    // CRITICAL: Sync the CompanyProfile application status
+                    companyProfileRepository.findById(companyId).ifPresent(company -> {
+                        company.setApplicationStatus(newStatus);
+                        companyProfileRepository.save(company);
+                    });
+
+                    // AI LEARNING: Capture the approval/rejection event
+                    learningService.captureEvent("SENIOR", approvalData.getApprovedBy(), companyId,
+                            "REPORT_" + newStatus, "Report " + newStatus.toLowerCase() + " by " + approvalData.getApprovedBy(),
+                            "Comments: " + approvalData.getApprovalComments());
+
+                    return ResponseEntity.ok("Report " + newStatus.toLowerCase());
                 })
                 .orElse(ResponseEntity.notFound().build());
+    }
+
+    /**
+     * Get reports by workflow status (for Senior dashboard)
+     */
+    @GetMapping("/by-status/{status}")
+    public ResponseEntity<List<EvaluationReport>> getReportsByStatus(@PathVariable String status) {
+        List<EvaluationReport> reports = evaluationReportRepository.findByWorkflowStatus(status.toUpperCase());
+        return ResponseEntity.ok(reports);
+    }
+
+    /**
+     * Get all reports pending senior review (SUBMITTED, UNDER_REVIEW, PENDING_APPROVAL)
+     */
+    @GetMapping("/pending-review")
+    public ResponseEntity<List<EvaluationReport>> getPendingReviewReports() {
+        List<EvaluationReport> reports = evaluationReportRepository.findByWorkflowStatusIn(
+                Arrays.asList("SUBMITTED", "UNDER_REVIEW", "PENDING_APPROVAL"));
+        return ResponseEntity.ok(reports);
     }
 }

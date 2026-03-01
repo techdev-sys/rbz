@@ -1,12 +1,14 @@
 import React, { useState, useEffect } from 'react';
-import { Card, Form, Button, Table, Alert, Badge, Row, Col, ProgressBar } from 'react-bootstrap';
+import { Card, Form, Button, Table, Alert, Badge, Row, Col, ProgressBar, InputGroup } from 'react-bootstrap';
 import {
     getShareholdingStructure,
     addShareholderManual,
     validateOwnershipCompliance,
     uploadShareholderDocument,
-    uploadCompanyOwnershipDocument
+    uploadCompanyOwnershipDocument,
+    deleteShareholder
 } from '../services/api';
+import WorkflowStatusPanel from './WorkflowStatusPanel';
 
 /**
  * Stage 2: Ownership - Shareholding Structure and Document Upload
@@ -21,12 +23,9 @@ function Stage2Ownership({ companyId, onComplete }) {
         ownershipPercentage: '',
         netWorthStatus: ''
     });
+    const [editIndex, setEditIndex] = useState(null);
+    const [editShareholder, setEditShareholder] = useState({});
     const [compliance, setCompliance] = useState(null);
-    const [documents, setDocuments] = useState({
-        applicationForm: null,
-        applicationLetter: null,
-        applicationFee: null
-    });
     const [uploadProgress, setUploadProgress] = useState({});
     const [alert, setAlert] = useState(null);
 
@@ -35,6 +34,7 @@ function Stage2Ownership({ companyId, onComplete }) {
         if (companyId) {
             fetchShareholdingStructure();
         }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [companyId]);
 
     const fetchShareholdingStructure = async () => {
@@ -54,11 +54,6 @@ function Stage2Ownership({ companyId, onComplete }) {
         } catch (error) {
             console.error('Error validating compliance:', error);
         }
-    };
-
-    // Calculate total ownership automatically
-    const calculateTotalOwnership = () => {
-        return shareholders.reduce((sum, sh) => sum + parseFloat(sh.ownershipPercentage || 0), 0);
     };
 
     // Add shareholder to table
@@ -89,47 +84,168 @@ function Stage2Ownership({ companyId, onComplete }) {
         }
     };
 
+    // Edit shareholder logic
+    const handleEditClick = (index, sh) => {
+        setEditIndex(index);
+        setEditShareholder({ ...sh });
+    };
+
+    const handleCancelEdit = () => {
+        setEditIndex(null);
+        setEditShareholder({});
+    };
+
+    const handleSaveEdit = async () => {
+        const ownership = parseFloat(editShareholder.ownershipPercentage);
+
+        // Validate 50% max rule
+        if (ownership > 50) {
+            setAlert({ type: 'danger', message: `Ownership of ${ownership}% exceeds the 50% maximum shareholding limit per shareholder.` });
+            return;
+        }
+
+        try {
+            const response = await addShareholderManual(companyId, { ...editShareholder, companyId });
+
+            const updated = [...shareholders];
+            updated[editIndex] = response.data;
+            setShareholders(updated);
+
+            setEditIndex(null);
+            setEditShareholder({});
+            setAlert({ type: 'success', message: 'Shareholder updated successfully!' });
+            validateCompliance();
+        } catch (error) {
+            setAlert({ type: 'danger', message: 'Error updating shareholder: ' + error.message });
+        }
+    };
+
     // Remove shareholder
-    const handleRemoveShareholder = (index) => {
-        // Note: For a real app, you should delete from backend too. But here we just update UI for now as per previous code.
-        const updated = shareholders.filter((_, i) => i !== index);
-        setShareholders(updated);
-        // re-validate
-        // For accurate validation we probably need to fetch from backend or just recalc locally. 
-        // Since validateCompliance calls backend, and we didn't delete from backend, it might show out of sync. 
-        // But let's keep original behavior for now or just warn user.
-        // Ideally we should implement deleteShareholder API.
+    const handleRemoveShareholder = async (index, shareholderId) => {
+        try {
+            if (shareholderId) {
+                await deleteShareholder(shareholderId);
+            }
+            const updated = shareholders.filter((_, i) => i !== index);
+            setShareholders(updated);
+            setAlert({ type: 'success', message: 'Shareholder removed successfully!' });
+            validateCompliance();
+        } catch (error) {
+            setAlert({ type: 'danger', message: 'Error removing shareholder: ' + error.message });
+        }
     };
 
     // Handle document upload
     const handleDocumentUpload = async (shareholderId, documentType, file) => {
+        const key = documentType + shareholderId;
         try {
-            setUploadProgress({ [documentType + shareholderId]: 50 });
+            setUploadProgress(prev => ({ ...prev, [key]: 50 }));
             await uploadShareholderDocument(shareholderId, documentType, file);
-            setUploadProgress({ [documentType + shareholderId]: 100 });
+            setUploadProgress(prev => ({ ...prev, [key]: 100 }));
             setAlert({ type: 'success', message: `${documentType} uploaded successfully!` });
-            setTimeout(() => setUploadProgress({}), 2000);
+            validateCompliance();
         } catch (error) {
             setAlert({ type: 'danger', message: `Error uploading ${documentType}: ` + error.message });
-            setUploadProgress({});
+            setUploadProgress(prev => {
+                const updated = { ...prev };
+                delete updated[key];
+                return updated;
+            });
         }
     };
 
     // Upload company-level documents
     const handleCompanyDocumentUpload = async (documentType, file) => {
         try {
-            setUploadProgress({ [documentType]: 50 });
+            setUploadProgress(prev => ({ ...prev, [documentType]: 50 }));
             await uploadCompanyOwnershipDocument(companyId, documentType, file);
-            setUploadProgress({ [documentType]: 100 });
+            setUploadProgress(prev => ({ ...prev, [documentType]: 100 }));
             setAlert({ type: 'success', message: `${documentType} uploaded successfully!` });
-            setTimeout(() => setUploadProgress({}), 2000);
         } catch (error) {
             setAlert({ type: 'danger', message: `Error uploading ${documentType}: ` + error.message });
-            setUploadProgress({});
+            setUploadProgress(prev => {
+                const updated = { ...prev };
+                delete updated[documentType];
+                return updated;
+            });
         }
     };
 
     const totalOwnership = shareholders.reduce((sum, sh) => sum + parseFloat(sh.ownershipPercentage || 0), 0);
+
+    const renderFileUploadCard = (title, docType, isCompany = true, id = null) => {
+        const progress = isCompany ? uploadProgress[docType] : uploadProgress[docType + id];
+        const isUploaded = progress === 100;
+
+        return (
+            <Col md={3} sm={6} className="mb-4" key={isCompany ? docType : docType + id}>
+                <Card className="h-100 shadow-sm border-0" style={{ backgroundColor: isUploaded ? '#f0fdf4' : '#f8f9fa', border: isUploaded ? '1px solid #198754 !important' : '1px solid #e0e4e8 !important', transition: '0.3s' }}>
+                    <Card.Body className="d-flex flex-column text-center justify-content-center p-4">
+                        <div className="mb-3">
+                            {isUploaded ? (
+                                <svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" fill="#198754" viewBox="0 0 16 16">
+                                    <path d="M12.736 3.97a.733.733 0 0 1 1.047 0c.286.289.29.756.01 1.05L7.88 12.01a.733.733 0 0 1-1.065.02L3.217 8.384a.757.757 0 0 1 0-1.06.733.733 0 0 1 1.047 0l3.052 3.093 5.4-6.425a.247.247 0 0 1 .02-.022Z" />
+                                </svg>
+                            ) : (
+                                <svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" fill="#003366" viewBox="0 0 16 16">
+                                    <path d="M.5 9.9a.5.5 0 0 1 .5.5v2.5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-2.5a.5.5 0 0 1 1 0v2.5a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2v-2.5a.5.5 0 0 1 .5-.5z" />
+                                    <path d="M7.646 1.146a.5.5 0 0 1 .708 0l3 3a.5.5 0 0 1-.708.708L8.5 2.707V11.5a.5.5 0 0 1-1 0V2.707L5.354 4.854a.5.5 0 1 1-.708-.708l3-3z" />
+                                </svg>
+                            )}
+                        </div>
+                        <h6 className="fw-bold mb-3" style={{ fontSize: '0.85rem', color: '#003366', height: '35px' }}>{title}</h6>
+
+                        {!isUploaded && (
+                            <div className="mt-auto">
+                                <label className="btn btn-outline-primary btn-sm w-100 rounded-pill fw-bold" style={{ cursor: 'pointer' }}>
+                                    Choose File
+                                    <input
+                                        type="file"
+                                        hidden
+                                        onChange={(e) => {
+                                            if (e.target.files[0]) {
+                                                isCompany
+                                                    ? handleCompanyDocumentUpload(docType, e.target.files[0])
+                                                    : handleDocumentUpload(id, docType, e.target.files[0]);
+                                            }
+                                        }}
+                                        accept=".pdf,.jpg,.png"
+                                    />
+                                </label>
+                            </div>
+                        )}
+
+                        {progress > 0 && progress < 100 && (
+                            <ProgressBar animated now={progress} style={{ height: '6px' }} className="mt-3 w-100" />
+                        )}
+
+                        {isUploaded && (
+                            <div className="mt-auto w-100 d-flex gap-2">
+                                <Badge bg="success" className="py-2 flex-grow-1 rounded-pill d-flex align-items-center justify-content-center">
+                                    <span className="me-1">✓</span> Uploaded
+                                </Badge>
+                                <Button
+                                    variant="outline-danger"
+                                    size="sm"
+                                    className="rounded-circle px-2"
+                                    onClick={() => {
+                                        setUploadProgress(prev => {
+                                            const updated = { ...prev };
+                                            delete updated[isCompany ? docType : docType + id];
+                                            return updated;
+                                        });
+                                    }}
+                                    title="Remove Document"
+                                >
+                                    ✕
+                                </Button>
+                            </div>
+                        )}
+                    </Card.Body>
+                </Card>
+            </Col>
+        );
+    };
 
     return (
         <div>
@@ -173,30 +289,98 @@ function Stage2Ownership({ companyId, onComplete }) {
                                 <tbody>
                                     {shareholders.map((sh, index) => (
                                         <tr key={index}>
-                                            <td>{sh.fullName}</td>
-                                            <td>{sh.numberOfShares}</td>
-                                            <td>{parseFloat(sh.amountPaid || 0).toFixed(2)}</td>
-                                            <td>
-                                                <Badge bg={sh.ownershipPercentage > 50 ? 'danger' : 'success'}>
-                                                    {sh.ownershipPercentage}%
-                                                </Badge>
-                                            </td>
-                                            <td>
-                                                {sh.netWorthStatus && sh.netWorthStatus !== ''
-                                                    ? (typeof sh.netWorthStatus === 'number'
-                                                        ? parseFloat(sh.netWorthStatus).toFixed(2)
-                                                        : sh.netWorthStatus)
-                                                    : 'N/A'}
-                                            </td>
-                                            <td>
-                                                <Button
-                                                    size="sm"
-                                                    variant="danger"
-                                                    onClick={() => handleRemoveShareholder(index)}
-                                                >
-                                                    Remove
-                                                </Button>
-                                            </td>
+                                            {editIndex === index ? (
+                                                <>
+                                                    <td>
+                                                        <Form.Control
+                                                            size="sm"
+                                                            value={editShareholder.fullName}
+                                                            onChange={(e) => setEditShareholder({ ...editShareholder, fullName: e.target.value })}
+                                                        />
+                                                    </td>
+                                                    <td>
+                                                        <Form.Control
+                                                            size="sm"
+                                                            type="number"
+                                                            value={editShareholder.numberOfShares}
+                                                            onChange={(e) => setEditShareholder({ ...editShareholder, numberOfShares: e.target.value })}
+                                                        />
+                                                    </td>
+                                                    <td>
+                                                        <Form.Control
+                                                            size="sm"
+                                                            type="number"
+                                                            step="0.01"
+                                                            value={editShareholder.amountPaid}
+                                                            onChange={(e) => setEditShareholder({ ...editShareholder, amountPaid: e.target.value })}
+                                                        />
+                                                    </td>
+                                                    <td>
+                                                        <Form.Control
+                                                            size="sm"
+                                                            type="number"
+                                                            step="0.01"
+                                                            value={editShareholder.ownershipPercentage}
+                                                            onChange={(e) => setEditShareholder({ ...editShareholder, ownershipPercentage: e.target.value })}
+                                                        />
+                                                    </td>
+                                                    <td>
+                                                        <InputGroup size="sm">
+                                                            <InputGroup.Text>$</InputGroup.Text>
+                                                            <Form.Control
+                                                                type="number"
+                                                                step="0.01"
+                                                                value={editShareholder.netWorthStatus}
+                                                                onChange={(e) => setEditShareholder({ ...editShareholder, netWorthStatus: e.target.value })}
+                                                            />
+                                                        </InputGroup>
+                                                    </td>
+                                                    <td>
+                                                        <Button size="sm" variant="success" className="me-2" onClick={handleSaveEdit}>
+                                                            Save
+                                                        </Button>
+                                                        <Button size="sm" variant="secondary" onClick={handleCancelEdit}>
+                                                            Cancel
+                                                        </Button>
+                                                    </td>
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <td className="d-flex align-items-center">
+                                                        <span
+                                                            style={{ cursor: 'pointer', marginRight: '8px', display: 'inline-flex', alignItems: 'center' }}
+                                                            onClick={() => handleEditClick(index, sh)}
+                                                            title="Edit Shareholder Details"
+                                                        >
+                                                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="#003366" viewBox="0 0 16 16">
+                                                                <path d="M12.146.146a.5.5 0 0 1 .708 0l3 3a.5.5 0 0 1 0 .708l-10 10a.5.5 0 0 1-.168.11l-5 2a.5.5 0 0 1-.65-.65l2-5a.5.5 0 0 1 .11-.168l10-10zM11.207 2.5 13.5 4.793 14.793 3.5 12.5 1.207 11.207 2.5zm1.586 3L10.5 3.207 4 9.707V10h.5a.5.5 0 0 1 .5.5v.5h.5a.5.5 0 0 1 .5.5v.5h.293l6.5-6.5zm-9.761 5.175-.106.106-1.528 3.821 3.821-1.528.106-.106A.5.5 0 0 1 5 12.5V12h-.5a.5.5 0 0 1-.5-.5V11h-.5a.5.5 0 0 1-.468-.325z" />
+                                                            </svg>
+                                                        </span>
+                                                        {sh.fullName}
+                                                    </td>
+                                                    <td>{sh.numberOfShares}</td>
+                                                    <td>{parseFloat(sh.amountPaid || 0).toFixed(2)}</td>
+                                                    <td>
+                                                        <Badge bg={sh.ownershipPercentage > 50 ? 'danger' : 'success'}>
+                                                            {sh.ownershipPercentage}%
+                                                        </Badge>
+                                                    </td>
+                                                    <td>
+                                                        {sh.netWorthStatus && sh.netWorthStatus !== ''
+                                                            ? `$${parseFloat(sh.netWorthStatus).toFixed(2)}`
+                                                            : 'N/A'}
+                                                    </td>
+                                                    <td>
+                                                        <Button
+                                                            size="sm"
+                                                            variant="danger"
+                                                            onClick={() => handleRemoveShareholder(index, sh.id)}
+                                                        >
+                                                            Remove
+                                                        </Button>
+                                                    </td>
+                                                </>
+                                            )}
                                         </tr>
                                     ))}
                                     {/* Add New Shareholder Row */}
@@ -239,12 +423,16 @@ function Stage2Ownership({ companyId, onComplete }) {
                                             />
                                         </td>
                                         <td>
-                                            <Form.Control
-                                                size="sm"
-                                                placeholder="Net Worth"
-                                                value={newShareholder.netWorthStatus}
-                                                onChange={(e) => setNewShareholder({ ...newShareholder, netWorthStatus: e.target.value })}
-                                            />
+                                            <InputGroup size="sm">
+                                                <InputGroup.Text>$</InputGroup.Text>
+                                                <Form.Control
+                                                    type="number"
+                                                    step="0.01"
+                                                    placeholder="Net Worth"
+                                                    value={newShareholder.netWorthStatus}
+                                                    onChange={(e) => setNewShareholder({ ...newShareholder, netWorthStatus: e.target.value })}
+                                                />
+                                            </InputGroup>
                                         </td>
                                         <td>
                                             <Button
@@ -267,7 +455,10 @@ function Stage2Ownership({ companyId, onComplete }) {
                                                 {totalOwnership.toFixed(2)}%
                                             </Badge>
                                         </td>
-                                        <td colSpan="2"></td>
+                                        <td>
+                                            ${shareholders.reduce((sum, sh) => sum + parseFloat(sh.netWorthStatus || 0), 0).toFixed(2)}
+                                        </td>
+                                        <td></td>
                                     </tr>
                                 </tbody>
                             </Table>
@@ -291,118 +482,47 @@ function Stage2Ownership({ companyId, onComplete }) {
                     {/* Document Uploads */}
                     <Card className="mb-4">
                         <Card.Header>
-                            <h5>Company-Level Document Uploads</h5>
+                            <h5>Required Company Documents</h5>
                         </Card.Header>
                         <Card.Body>
                             <Row>
-                                <Col md={6}>
-                                    <Form.Group className="mb-3">
-                                        <Form.Label>Application Fee Receipt</Form.Label>
-                                        <Form.Control
-                                            type="file"
-                                            onChange={(e) => handleCompanyDocumentUpload('applicationFee', e.target.files[0])}
-                                        />
-                                        {uploadProgress.applicationFee > 0 && (
-                                            <ProgressBar now={uploadProgress.applicationFee} label={`${uploadProgress.applicationFee}%`} className="mt-2" />
-                                        )}
-                                    </Form.Group>
-                                </Col>
-                                <Col md={6}>
-                                    <Form.Group className="mb-3">
-                                        <Form.Label>Board Resolution (Par Value Confirmation)</Form.Label>
-                                        <Form.Control
-                                            type="file"
-                                            onChange={(e) => handleCompanyDocumentUpload('boardResolution', e.target.files[0])}
-                                        />
-                                        {uploadProgress.boardResolution > 0 && (
-                                            <ProgressBar now={uploadProgress.boardResolution} label={`${uploadProgress.boardResolution}%`} className="mt-2" />
-                                        )}
-                                    </Form.Group>
-                                </Col>
+                                {renderFileUploadCard("Application Letter", "application-letter")}
+                                {renderFileUploadCard("Board Resolution", "board-resolution")}
+                                {renderFileUploadCard("Certificate of Incorporation", "certificate-of-incorporation")}
+                                {renderFileUploadCard("Share of Capital Clause", "share-of-capital-clause")}
+                                {renderFileUploadCard("CR6", "cr6")}
+                                {renderFileUploadCard("CR9", "cr9")}
+                                {renderFileUploadCard("Company Tax Clearance", "company-tax-clearance")}
                             </Row>
                         </Card.Body>
                     </Card>
 
                     {/* Shareholder-Specific Documents */}
                     {shareholders.length > 0 && (
-                        <Card>
+                        <Card className="mb-4">
                             <Card.Header>
-                                <h5>Shareholder-Specific Document Uploads</h5>
+                                <h5>Directors Questionnaires</h5>
                             </Card.Header>
                             <Card.Body>
-                                {shareholders.map((sh, index) => (
-                                    <Card key={index} className="mb-3">
-                                        <Card.Header>{sh.fullName}</Card.Header>
-                                        <Card.Body>
-                                            <Row>
-                                                <Col md={4}>
-                                                    <Form.Group className="mb-3">
-                                                        <Form.Label>Net Worth Statement</Form.Label>
-                                                        <Form.Control
-                                                            type="file"
-                                                            size="sm"
-                                                            onChange={(e) => handleDocumentUpload(sh.id, 'netWorthStatement', e.target.files[0])}
-                                                        />
-                                                        {uploadProgress['netWorthStatement' + sh.id] > 0 && (
-                                                            <ProgressBar
-                                                                now={uploadProgress['netWorthStatement' + sh.id]}
-                                                                size="sm"
-                                                                className="mt-2"
-                                                            />
-                                                        )}
-                                                    </Form.Group>
-                                                </Col>
-                                                <Col md={4}>
-                                                    <Form.Group className="mb-3">
-                                                        <Form.Label>Shareholder Affidavit (UBO)</Form.Label>
-                                                        <Form.Control
-                                                            type="file"
-                                                            size="sm"
-                                                            onChange={(e) => handleDocumentUpload(sh.id, 'shareholderAffidavit', e.target.files[0])}
-                                                        />
-                                                        {uploadProgress['shareholderAffidavit' + sh.id] > 0 && (
-                                                            <ProgressBar
-                                                                now={uploadProgress['shareholderAffidavit' + sh.id]}
-                                                                size="sm"
-                                                                className="mt-2"
-                                                            />
-                                                        )}
-                                                    </Form.Group>
-                                                </Col>
-                                                <Col md={4}>
-                                                    <Form.Group className="mb-3">
-                                                        <Form.Label>Capital Contribution Confirmation</Form.Label>
-                                                        <Form.Control
-                                                            type="file"
-                                                            size="sm"
-                                                            onChange={(e) => handleDocumentUpload(sh.id, 'capitalConfirmation', e.target.files[0])}
-                                                        />
-                                                        {uploadProgress['capitalConfirmation' + sh.id] > 0 && (
-                                                            <ProgressBar
-                                                                now={uploadProgress['capitalConfirmation' + sh.id]}
-                                                                size="sm"
-                                                                className="mt-2"
-                                                            />
-                                                        )}
-                                                    </Form.Group>
-                                                </Col>
-                                            </Row>
-                                        </Card.Body>
-                                    </Card>
-                                ))}
+                                <Alert variant="info" className="mb-4">
+                                    <small>Please upload a completed Questionnaire for each added director below.</small>
+                                </Alert>
+                                <Row>
+                                    {shareholders.map((sh, index) => (
+                                        renderFileUploadCard(`Questionnaire: ${sh.fullName.split(' ')[0]}`, "directors-questionnaire", false, sh.id)
+                                    ))}
+                                </Row>
                             </Card.Body>
                         </Card>
                     )}
 
-                    <div className="d-flex justify-content-between mt-4">
-                        <Button variant="secondary">← Previous Stage</Button>
-                        <Button
-                            variant="primary"
-                            onClick={onComplete}
-                            disabled={!compliance || !compliance.compliant}
-                        >
-                            Next Stage →
-                        </Button>
+                    {/* Replaced old Next button with Workflow Engine Sign Off */}
+                    <div className="mt-4">
+                        <WorkflowStatusPanel
+                            companyId={companyId}
+                            currentStep={2}
+                            onStageComplete={onComplete}
+                        />
                     </div>
                 </Card.Body>
             </Card>

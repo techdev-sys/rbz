@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Button, Card, Col, Container, Form, Row, Alert, Table, Modal, Badge } from 'react-bootstrap';
 import { saveApplicationForm, getApplicationFormByCompany } from '../services/api';
+import WorkflowStatusPanel from './WorkflowStatusPanel';
 
 const ApplicationForm = ({ onComplete }) => {
     const [companyId] = useState(localStorage.getItem('currentCompanyId') || "");
@@ -263,6 +264,23 @@ const ApplicationForm = ({ onComplete }) => {
         const { name, value } = e.target;
         setFormData(prev => ({ ...prev, [name]: value }));
     };
+
+    // --- NEW: Auto-Save Functionality ---
+    useEffect(() => {
+        // Only run auto-save if we have a valid companyId and some basic data
+        if (!companyId || companyId.toString().startsWith("MOCK-") || !formData.nameOfApplicant) return;
+
+        const timer = setTimeout(async () => {
+            try {
+                await saveApplicationForm(formData);
+                console.log("Auto-save ApplicationForm successful.");
+            } catch (error) {
+                console.warn("Auto-save ApplicationForm failed:", error);
+            }
+        }, 1500); // 1.5 second debounce
+
+        return () => clearTimeout(timer);
+    }, [formData, companyId]);
 
     const addBranch = () => {
         setFormData(prev => ({
@@ -1104,16 +1122,25 @@ const ApplicationForm = ({ onComplete }) => {
                             </Card.Body>
                         </Card>
 
-                        {/* Submit Button */}
+                        {/* Submit Button - Changed to save draft */}
                         <div className="d-flex justify-content-between align-items-center mt-4 mb-4">
                             <div className="text-muted">
                                 <small>All fields marked with <span className="text-danger">*</span> are required</small>
                             </div>
-                            <Button variant="primary" type="submit" size="lg">
-                                Submit Application Form →
+                            <Button variant="outline-primary" type="submit" size="lg">
+                                💾 Save Form Draft
                             </Button>
                         </div>
                     </Form>
+
+                    {/* Workflow Rule Engine Integration */}
+                    <div className="mt-4 mb-4 border-top pt-4">
+                        <WorkflowStatusPanel
+                            companyId={companyId}
+                            currentStep={4}
+                            onStageComplete={onComplete}
+                        />
+                    </div>
                 </Card.Body>
             </Card>
 

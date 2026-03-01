@@ -1,0 +1,19 @@
+/* HowToApply styling */
+
+.how-to-card {
+    border-radius: 12px;
+}
+
+.step-box {
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.step-box:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 5px 15px rgba(0, 51, 102, 0.1);
+}
+
+.step-number {
+    font-size: 1.1rem;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}

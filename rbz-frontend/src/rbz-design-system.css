@@ -152,11 +152,11 @@ body {
 }
 
 .card.rbz-card .card-header {
-    background: var(--rbz-gradient-purple);
-    border-bottom: 3px solid var(--rbz-gold);
+    background: var(--rbz-white);
+    border-bottom: 1px solid var(--rbz-gray-200);
     font-weight: 600;
     color: var(--rbz-navy-dark);
-    padding: var(--rbz-spacing-lg);
+    padding: var(--rbz-spacing-lg) var(--rbz-spacing-xl);
 }
 
 .card.rbz-card .card-body {

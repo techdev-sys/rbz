@@ -132,7 +132,7 @@ public class MFIReportGenerationService {
                 return "<style>" +
                                 "body { font-family: 'Times New Roman', serif; font-size: 12pt; line-height: 1.6; margin: 40px; }"
                                 +
-                                "h1 { text-align: center; font-size: 18pt; text-transform: uppercase; margin-bottom: 30px; }"
+                                "h1 { text-align: center; font-size: 18pt; text-transform: uppercase; margin-bottom: 30px; border-bottom: none; }"
                                 +
                                 "h2 { font-size: 14pt; text-transform: uppercase; margin-top: 30px; border-bottom: 2px solid #000; }"
                                 +
@@ -140,7 +140,9 @@ public class MFIReportGenerationService {
                                 "table { width: 100%; border-collapse: collapse; margin: 20px 0; }" +
                                 "th, td { border: 1px solid #000; padding: 8px; text-align: left; }" +
                                 "th { background-color: #f0f0f0; font-weight: bold; }" +
-                                ".header-info { margin-bottom: 10px; }" +
+                                ".memo-list { display: flex; flex-direction: column; gap: 20px; }" +
+                                ".memo-item { line-height: 1.4; }" +
+                                ".memo-item strong { display: block; margin-bottom: 5px; text-transform: uppercase; }" +
                                 ".section { page-break-inside: avoid; }" +
                                 "@media print { body { margin: 20px; } .page-break { page-break-before: always; } }" +
                                 "</style>";
@@ -149,35 +151,71 @@ public class MFIReportGenerationService {
         private String generateHeaderSection(CompanyProfile company) {
                 StringBuilder section = new StringBuilder();
                 section.append("<div class='section'>");
-                section.append("<h1>").append(company.getCompanyName()).append("</h1>");
-                section.append("<h1>APPLICATION FOR ").append(company.getLicenseType())
-                                .append(" MICROFINANCE LICENCE</h1>");
+                section.append("<h1 style='text-align: center; margin-bottom: 20px;'>MEMORANDUM</h1>");
+                
+                section.append("<h2 style='text-align: center; font-size: 14pt; border-bottom: none; margin-top: 10px; margin-bottom: 15px;'>")
+                       .append(company.getCompanyName().toUpperCase()).append("</h2>");
+                       
+                String cleanLicenseType = company.getLicenseType() != null ? company.getLicenseType().toUpperCase().replace(" MICROFINANCE", "") : "CREDIT-ONLY";
+                section.append("<h3 style='text-align: center; text-transform: uppercase; font-size: 12pt; font-weight: bold; border-bottom: none; margin-bottom: 40px;'>")
+                       .append("APPLICATION FOR A ").append(cleanLicenseType).append(" MICROFINANCE LICENCE</h3>");
 
-                section.append("<div class='header-info'><strong>Offices:</strong> ")
-                                .append(company.getPhysicalAddress())
-                                .append("</div>");
-                section.append("<div class='header-info'><strong>Bankers:</strong> ").append(company.getBankers())
-                                .append("</div>");
-                section.append("<div class='header-info'><strong>Lawyers:</strong> ").append(company.getLawyers())
-                                .append("</div>");
-                section.append("<div class='header-info'><strong>Auditors:</strong> ").append(company.getAuditors())
-                                .append("</div>");
+                section.append("<div class='memo-list'>");
+                
+                section.append("<div class='memo-item'><strong>OFFICES</strong><br/>")
+                       .append(company.getPhysicalAddress() != null ? company.getPhysicalAddress().replace("\n", "<br/>") : "-")
+                       .append("</div>");
+                       
+                section.append("<div class='memo-item'><strong>BANKERS</strong><br/>")
+                       .append(company.getBankers() != null ? company.getBankers() : "-")
+                       .append("</div>");
+                       
+                section.append("<div class='memo-item'><strong>LAWYERS</strong><br/>")
+                       .append(company.getLawyers() != null ? company.getLawyers() : "-")
+                       .append("</div>");
 
-                section.append("<div class='header-info'><strong>Shareholders:</strong> See Table 1</div>");
-                section.append("<div class='header-info'><strong>Chief Executive Officer:</strong> ")
-                                .append(company.getChiefExecutiveOfficer()).append("</div>");
-                section.append("<div class='header-info'><strong>Company Registration Number:</strong> ")
-                                .append(company.getRegistrationNumber()).append("</div>");
-                section.append("<div class='header-info'><strong>Licence Number:</strong> ")
-                                .append(company.getLicenseNumber())
-                                .append("</div>");
-                section.append("<div class='header-info'><strong>Contact Telephone:</strong> ")
-                                .append(company.getContactTelephone()).append("</div>");
-                section.append("<div class='header-info'><strong>Email Address:</strong> ")
-                                .append(company.getEmailAddress())
-                                .append("</div>");
+                section.append("<div class='memo-item'><strong>CHIEF EXECUTIVE OFFICER</strong><br/>")
+                       .append(company.getChiefExecutiveOfficer() != null ? company.getChiefExecutiveOfficer() : "-")
+                       .append("</div>");
+                       
+                section.append("<div class='memo-item'><strong>COMPANY REGISTRATION NUMBER</strong><br/>")
+                       .append(company.getRegistrationNumber() != null ? company.getRegistrationNumber() : "-")
+                       .append("</div>");
+                       
+                section.append("<div class='memo-item'><strong>CONTACT TELEPHONE NUMBERS</strong><br/>")
+                       .append(company.getContactTelephone() != null ? company.getContactTelephone() : "-")
+                       .append("</div>");
+                       
+                section.append("<div class='memo-item'><strong>E-MAIL ADDRESS</strong><br/>")
+                       .append(company.getEmailAddress() != null ? company.getEmailAddress() : "-")
+                       .append("</div>");
 
-                section.append("</div>");
+                section.append("</div>"); // close memo-list
+                
+                // Add the introductory paragraphs 
+                section.append("<div class='memo-paragraphs' style='margin-top: 40px; text-align: justify; line-height: 1.8;'>");
+                
+                // Paragraph 1: Incorporation
+                String incorpDate = company.getIncorporationDate() != null ? company.getIncorporationDate().toString() : "[PENDING INCORPORATION DATE]";
+                section.append("<p>").append(company.getCompanyName())
+                       .append(" was incorporated in terms of the Companies and Other Business Entities Act [Chapter 24:31] on ")
+                       .append(incorpDate).append(". </p>");
+                       
+                // Paragraph 2: Operations
+                String physAddrLine = company.getPhysicalAddress() != null ? company.getPhysicalAddress().replace("\n", ", ") : "[PENDING ADDRESS]";
+                section.append("<p>").append(company.getCompanyName())
+                       .append(" intends to operate from its head office Stand Number ")
+                       .append(physAddrLine).append(". </p>");
+                       
+                // Paragraph 3: Application Date
+                String appDate = company.getApplicationDate() != null ? company.getApplicationDate().toString() : "[PENDING APPLICATION DATE]";
+                String licTypeLower = company.getLicenseType() != null ? company.getLicenseType().toLowerCase().replace(" microfinance", "") : "credit-only";
+                section.append("<p>The institution applied for a ").append(licTypeLower)
+                       .append(" microfinance licence on ").append(appDate).append(". </p>");
+                       
+                section.append("</div>"); // close memo-paragraphs
+
+                section.append("</div>"); // close section
                 return section.toString();
         }
 

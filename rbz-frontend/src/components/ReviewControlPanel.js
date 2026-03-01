@@ -12,6 +12,7 @@ const ReviewControlPanel = ({ companyId, stageId, stageName, examinerName }) => 
 
     useEffect(() => {
         loadReview();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [companyId, stageId]);
 
     const loadReview = async () => {

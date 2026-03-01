@@ -6,9 +6,12 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
+import com.rbz.licensingsystem.model.CompanyDocument;
+import com.rbz.licensingsystem.repository.CompanyDocumentRepository;
 import com.rbz.licensingsystem.service.DocumentExtractionService;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 @RestController
@@ -17,6 +20,18 @@ public class DocumentExtractionController {
 
     @Autowired
     private DocumentExtractionService documentExtractionService;
+
+    @Autowired
+    private CompanyDocumentRepository companyDocumentRepository;
+
+    /**
+     * List all uploaded documents for a company
+     */
+    @GetMapping("/{companyId}")
+    public ResponseEntity<List<CompanyDocument>> getDocuments(@PathVariable Long companyId) {
+        List<CompanyDocument> docs = companyDocumentRepository.findByCompanyId(companyId);
+        return ResponseEntity.ok(docs);
+    }
 
     /**
      * Upload and extract data from various document types

@@ -5,6 +5,9 @@ import com.fasterxml.jackson.annotation.JsonFormat;
 import lombok.Data;
 import java.time.LocalDate;
 
+import com.rbz.licensingsystem.model.enums.ApplicationStage;
+import com.rbz.licensingsystem.model.enums.StageStatus;
+
 @Entity
 @Data
 public class CompanyProfile {
@@ -46,6 +49,10 @@ public class CompanyProfile {
     // --- Template Source: [47] Licence Number ---
     private String licenseNumber;
 
+    // Date the license was granted
+    @JsonFormat(pattern = "yyyy-MM-dd")
+    private LocalDate licenseGrantedDate;
+
     // --- Template Source: [49] Contact Telephone ---
     private String contactTelephone;
 
@@ -83,4 +90,11 @@ public class CompanyProfile {
     // --- Workflow Management ---
     private String applicationStatus = "DRAFT"; // DRAFT, SUBMITTED, ASSIGNED, UNDER_REVIEW, COMPLETED
     private String assignedExaminer; // Name of the examiner assigned by Senior BE
+    
+    // --- Stage-Gated Workflow Engine ---
+    @Enumerated(EnumType.STRING)
+    private ApplicationStage workflowStage = ApplicationStage.DOCUMENT_INTAKE;
+
+    @Enumerated(EnumType.STRING)
+    private StageStatus workflowStatus = StageStatus.IN_PROGRESS;
 }
