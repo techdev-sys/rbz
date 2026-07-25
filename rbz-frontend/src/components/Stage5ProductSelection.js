@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Card, Button, Form, Table, Badge, Alert, Modal, Row, Col, Tabs, Tab } from 'react-bootstrap';
 import axios from 'axios';
+import { friendlyError } from '../services/api';
 
 /**
  * Stage 5: Product Selection
@@ -37,7 +38,7 @@ function Stage5ProductSelection({ companyId, onComplete }) {
 
     const fetchProductCatalog = async () => {
         try {
-            const response = await axios.get('http://localhost:8080/api/products/catalog');
+            const response = await axios.get('/api/products/catalog');
             setAllProducts(response.data);
         } catch (error) {
             console.error('Error fetching product catalog:', error);
@@ -47,7 +48,7 @@ function Stage5ProductSelection({ companyId, onComplete }) {
 
     const fetchCompanyProducts = async () => {
         try {
-            const response = await axios.get(`http://localhost:8080/api/products/company/${companyId}`);
+            const response = await axios.get(`/api/products/company/${companyId}`);
             setSelectedProducts(response.data);
         } catch (error) {
             console.error('Error fetching company products:', error);
@@ -75,7 +76,7 @@ function Stage5ProductSelection({ companyId, onComplete }) {
 
         try {
             const response = await axios.post(
-                `http://localhost:8080/api/products/company/${companyId}/add`,
+                `/api/products/company/${companyId}/add`,
                 {
                     productId: currentProduct.id,
                     ...productDetails
@@ -87,7 +88,7 @@ function Stage5ProductSelection({ companyId, onComplete }) {
             setShowProductModal(false);
             setCurrentProduct(null);
         } catch (error) {
-            setAlert({ type: 'danger', message: 'Error adding product: ' + (error.response?.data?.message || error.message) });
+            setAlert({ type: 'danger', message: friendlyError(error, 'Could not add the product. Please try again.') });
         }
     };
 
@@ -99,7 +100,7 @@ function Stage5ProductSelection({ companyId, onComplete }) {
 
         try {
             const response = await axios.post(
-                `http://localhost:8080/api/products/company/${companyId}/add-custom`,
+                `/api/products/company/${companyId}/add-custom`,
                 {
                     customProductName: customProduct.name,
                     customProductDescription: customProduct.description,
@@ -120,7 +121,7 @@ function Stage5ProductSelection({ companyId, onComplete }) {
                 additionalCharges: ''
             });
         } catch (error) {
-            setAlert({ type: 'danger', message: 'Error adding custom product: ' + error.message });
+            setAlert({ type: 'danger', message: friendlyError(error, 'Could not add the custom product. Please try again.') });
         }
     };
 
@@ -128,11 +129,11 @@ function Stage5ProductSelection({ companyId, onComplete }) {
         if (window.confirm('Are you sure you want to remove this product?')) {
             try {
                 const product = selectedProducts.find(p => p.id === companyProductId);
-                await axios.delete(`http://localhost:8080/api/products/company/${companyId}/remove/${product.productId}`);
+                await axios.delete(`/api/products/company/${companyId}/remove/${product.productId}`);
                 setSelectedProducts(selectedProducts.filter(p => p.id !== companyProductId));
                 setAlert({ type: 'success', message: 'Product removed successfully!' });
             } catch (error) {
-                setAlert({ type: 'danger', message: 'Error removing product: ' + error.message });
+                setAlert({ type: 'danger', message: friendlyError(error, 'Could not remove the product. Please try again.') });
             }
         }
     };

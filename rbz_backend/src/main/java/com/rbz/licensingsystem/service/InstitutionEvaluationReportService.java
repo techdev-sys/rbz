@@ -8,17 +8,13 @@ import org.springframework.stereotype.Service;
 import java.time.format.DateTimeFormatter;
 import java.util.Comparator;
 import java.util.List;
-import java.util.stream.Collectors;
 
 /**
- * Service for generating comprehensive MFI Evaluation Reports (Memoranda)
- * This service pulls data from all stages and formats them into the standard
- * RBZ report template.
- * Updated to support dynamic table numbering, logo placeholders, and strict
- * report formatting.
+ * Generates text-format institution evaluation memoranda.
+ * Institution-neutral replacement for MFIEvaluationReportService.
  */
 @Service
-public class MFIEvaluationReportService {
+public class InstitutionEvaluationReportService {
 
     @Autowired
     private CompanyProfileRepository companyProfileRepository;
@@ -50,6 +46,7 @@ public class MFIEvaluationReportService {
     /**
      * Generate a complete MFI evaluation memorandum for a company
      */
+    @SuppressWarnings("null")
     public String generateMemorandum(Long companyId) {
         StringBuilder memo = new StringBuilder();
         tableCounter = 1; // Reset table counter for new report
@@ -195,7 +192,7 @@ public class MFIEvaluationReportService {
                     .append(sh.getNumberOfShares()).append("\t")
                     .append(sh.getAmountPaid()).append("\t")
                     .append(String.format("%.0f%%", sh.getOwnershipPercentage())).append("\t")
-                    .append("$").append(sh.getVerifiedNetWorthStatus()).append("\n"); // Assuming net worth value stored
+                    .append("$").append(sh.getNetWorthStatus()).append("\n"); // Assuming net worth value stored
                                                                                       // here
         }
 
@@ -206,7 +203,7 @@ public class MFIEvaluationReportService {
         }
 
         section.append(
-                "2.2 The shareholding structure complies with section 34(1) of the Microfinance Act [Chapter 24:30] as read in conjunction with section 26 (1) (b) (ii) of the Microfinance (General) Regulations SI 85/2025, which limits the maximum shareholding per shareholder of a microfinance institution at 50%.\n");
+                "2.2 The shareholding structure complies with section 34(1) of the Microfinance Act [Chapter 24:29] as read in conjunction with section 26 (1) (b) (ii) of the Microfinance (General) Regulations SI 85/2025, which limits the maximum shareholding per shareholder of a microfinance institution at 50%.\n");
 
         if (capital != null && capital.getBoardResolutionSubmitted() != null
                 && capital.getBoardResolutionSubmitted().equalsIgnoreCase("YES")) {
@@ -261,7 +258,6 @@ public class MFIEvaluationReportService {
 
         long execCount = directors.stream()
                 .filter(d -> d.getDesignation() != null && d.getDesignation().toLowerCase().contains("non")).count();
-        long nonExecCount = directors.size() - execCount; // Simplified logic, ideally check explicit type
 
         section.append("4. CORPORATE GOVERNANCE\n");
         section.append("Board and Senior Management\n");
@@ -269,7 +265,7 @@ public class MFIEvaluationReportService {
                 .append("-member board, comprising ").append(directors.size() - execCount)
                 .append(" executive directors and ")
                 .append(execCount)
-                .append(" non-executive directors, which complies with the Microfinance Act [Chapter 24:30].\n");
+                .append(" non-executive directors, which complies with the Microfinance Act [Chapter 24:29].\n");
         section.append("The qualifications and experience of the board and the senior management is shown in Table ")
                 .append(tableCounter).append(".\n\n");
 

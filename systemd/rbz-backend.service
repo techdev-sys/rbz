@@ -1,0 +1,18 @@
+[Unit]
+Description=RBZ Licensing System — Spring Boot Backend
+After=network.target postgresql.service
+Requires=postgresql.service
+
+[Service]
+Type=simple
+User=takilaa
+WorkingDirectory=/home/takilaa/rbz/rbz_backend
+EnvironmentFile=/home/takilaa/rbz/production.env
+ExecStart=/usr/bin/java -jar /home/takilaa/rbz/rbz_backend/target/licensing-system-0.0.1-SNAPSHOT.jar
+Restart=on-failure
+RestartSec=10
+StandardOutput=append:/home/takilaa/rbz/logs/backend.log
+StandardError=append:/home/takilaa/rbz/logs/backend.log
+
+[Install]
+WantedBy=multi-user.target

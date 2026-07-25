@@ -33,7 +33,6 @@ public class ExaminerController {
             String fullName = request.get("fullName");
             String username = request.get("username");
             String password = request.get("password");
-            String designation = request.get("designation");
             String role = request.getOrDefault("role", "EXAMINER");
             String email = request.get("email");
             String createdBy = request.getOrDefault("createdBy", "Senior BE");
@@ -84,14 +83,13 @@ public class ExaminerController {
             response.put("createdBy", saved.getCreatedBy());
             // Include the plain password in the response so Senior BE can share it
             response.put("generatedCredentials", Map.of(
-                "username", username,
-                "password", password
-            ));
+                    "username", username,
+                    "password", password));
 
             return ResponseEntity.ok(response);
         } catch (Exception e) {
             log.error("❌ Failed to create examiner", e);
-            return ResponseEntity.badRequest().body("Failed to create examiner: " + e.getMessage());
+            return ResponseEntity.badRequest().body("Failed to create examiner. Please try again.");
         }
     }
 
@@ -122,6 +120,7 @@ public class ExaminerController {
     /**
      * Get examiner by ID
      */
+    @SuppressWarnings("null")
     @GetMapping("/{id}")
     public ResponseEntity<?> getExaminer(@PathVariable Long id) {
         return examinerRepository.findById(id)
@@ -132,15 +131,21 @@ public class ExaminerController {
     /**
      * Update examiner details
      */
+    @SuppressWarnings("null")
     @PutMapping("/{id}")
     public ResponseEntity<?> updateExaminer(@PathVariable Long id, @RequestBody Map<String, String> request) {
         return examinerRepository.findById(id)
                 .map(examiner -> {
-                    if (request.containsKey("fullName")) examiner.setFullName(request.get("fullName"));
-                    if (request.containsKey("designation")) examiner.setDesignation(request.get("designation"));
-                    if (request.containsKey("status")) examiner.setStatus(request.get("status"));
-                    if (request.containsKey("email")) examiner.setEmail(request.get("email"));
-                    if (request.containsKey("role")) examiner.setRole(request.get("role"));
+                    if (request.containsKey("fullName"))
+                        examiner.setFullName(request.get("fullName"));
+                    if (request.containsKey("designation"))
+                        examiner.setDesignation(request.get("designation"));
+                    if (request.containsKey("status"))
+                        examiner.setStatus(request.get("status"));
+                    if (request.containsKey("email"))
+                        examiner.setEmail(request.get("email"));
+                    if (request.containsKey("role"))
+                        examiner.setRole(request.get("role"));
                     if (request.containsKey("password")) {
                         examiner.setPassword(passwordEncoder.encode(request.get("password")));
                     }
@@ -154,6 +159,7 @@ public class ExaminerController {
     /**
      * Deactivate examiner (soft delete)
      */
+    @SuppressWarnings("null")
     @DeleteMapping("/{id}")
     public ResponseEntity<?> deactivateExaminer(@PathVariable Long id) {
         return examinerRepository.findById(id)
@@ -169,6 +175,7 @@ public class ExaminerController {
     /**
      * Get examiner workload (count of assigned applications)
      */
+    @SuppressWarnings("null")
     @GetMapping("/{id}/workload")
     public ResponseEntity<?> getExaminerWorkload(@PathVariable Long id) {
         return examinerRepository.findById(id)

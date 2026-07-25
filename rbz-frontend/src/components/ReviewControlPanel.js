@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Card, Button, Form, Badge, Alert } from 'react-bootstrap';
 import axios from 'axios';
 
-const API_BASE_URL = 'http://localhost:8080/api/review';
+const API_BASE_URL = '/api/review';
 
 const ReviewControlPanel = ({ companyId, stageId, stageName, examinerName }) => {
     const [status, setStatus] = useState('PENDING'); // PENDING, APPROVED, FLAGGED

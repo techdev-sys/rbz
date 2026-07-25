@@ -23,11 +23,12 @@ public class WorkflowController {
     private final CompanyProfileRepository companyProfileRepository;
     private final RuleEvaluationLogRepository evaluationLogRepository;
 
+    @SuppressWarnings("null")
     @GetMapping("/{companyId}/status")
     public ResponseEntity<Map<String, Object>> getWorkflowStatus(@PathVariable Long companyId) {
         CompanyProfile company = companyProfileRepository.findById(companyId)
                 .orElseThrow(() -> new RuntimeException("Company not found"));
-        
+
         List<RuleEvaluationLog> logs = evaluationLogRepository.findByCompanyId(companyId);
 
         Map<String, Object> response = new HashMap<>();
@@ -38,22 +39,31 @@ public class WorkflowController {
         return ResponseEntity.ok(response);
     }
 
+    @PostMapping("/{companyId}/evaluate/all")
+    public ResponseEntity<List<RuleEvaluationLog>> evaluateAllStages(
+            @PathVariable Long companyId,
+            @RequestParam(defaultValue = "system") String evaluatedBy) {
+
+        List<RuleEvaluationLog> results = workflowEngineService.evaluateAllStages(companyId, evaluatedBy);
+        return ResponseEntity.ok(results);
+    }
+
     @PostMapping("/{companyId}/evaluate/{stage}")
     public ResponseEntity<List<RuleEvaluationLog>> evaluateStage(
-            @PathVariable Long companyId, 
+            @PathVariable Long companyId,
             @PathVariable ApplicationStage stage,
             @RequestParam(defaultValue = "system") String evaluatedBy) {
-        
+
         List<RuleEvaluationLog> results = workflowEngineService.evaluateStage(companyId, stage, evaluatedBy);
         return ResponseEntity.ok(results);
     }
 
     @PostMapping("/{companyId}/advance/{stage}")
     public ResponseEntity<String> advanceStage(
-            @PathVariable Long companyId, 
+            @PathVariable Long companyId,
             @PathVariable ApplicationStage stage,
             @RequestParam(defaultValue = "system") String user) {
-        
+
         workflowEngineService.advanceStage(companyId, stage, user);
         return ResponseEntity.ok("Stage advanced successfully");
     }

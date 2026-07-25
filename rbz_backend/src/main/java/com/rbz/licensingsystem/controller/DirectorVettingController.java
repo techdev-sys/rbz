@@ -45,6 +45,7 @@ public class DirectorVettingController {
     /**
      * Get a specific director
      */
+    @SuppressWarnings("null")
     @GetMapping("/{directorId}")
     public ResponseEntity<Director> getDirector(@PathVariable Long directorId) {
         Director director = directorRepository.findById(directorId)
@@ -84,6 +85,7 @@ public class DirectorVettingController {
     /**
      * Update existing director
      */
+    @SuppressWarnings("null")
     @PutMapping("/{directorId}")
     public ResponseEntity<Director> updateDirector(
             @PathVariable Long directorId,
@@ -127,6 +129,18 @@ public class DirectorVettingController {
         // Update risk flag (from CV analysis)
         director.setRiskFlag(directorDetails.isRiskFlag());
 
+        // Update document verification booleans (from AI verification in frontend)
+        if (directorDetails.isAffidavitVerified())
+            director.setAffidavitVerified(true);
+        if (directorDetails.isNetWorthVerified())
+            director.setNetWorthVerified(true);
+        if (directorDetails.isPoliceClearanceVerified())
+            director.setPoliceClearanceVerified(true);
+        if (directorDetails.isTaxClearanceVerified())
+            director.setTaxClearanceVerified(true);
+        if (directorDetails.isCertifiedIdVerified())
+            director.setCertifiedIdVerified(true);
+
         System.out.println("==============================================");
 
         Director updated = directorRepository.save(director);
@@ -136,6 +150,7 @@ public class DirectorVettingController {
     /**
      * Delete director
      */
+    @SuppressWarnings("null")
     @DeleteMapping("/{directorId}")
     public ResponseEntity<Void> deleteDirector(@PathVariable Long directorId) {
         Director director = directorRepository.findById(directorId)
@@ -151,6 +166,7 @@ public class DirectorVettingController {
     /**
      * Upload ID document for a director
      */
+    @SuppressWarnings("null")
     @PostMapping("/{directorId}/upload-id")
     public ResponseEntity<Director> uploadIdDocument(
             @PathVariable Long directorId,
@@ -194,6 +210,7 @@ public class DirectorVettingController {
     /**
      * Update ID document verification status
      */
+    @SuppressWarnings("null")
     @PutMapping("/{directorId}/verify")
     public ResponseEntity<Director> updateVerificationStatus(
             @PathVariable Long directorId,

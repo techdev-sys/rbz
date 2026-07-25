@@ -34,17 +34,19 @@ public class ShareholderController {
             // Calls the new Python prompt for "cr11_form" via AIService
             return ResponseEntity.ok(aiService.extractCR11(file));
         } catch (IOException e) {
-            return ResponseEntity.internalServerError().body("Failed to extract CR11: " + e.getMessage());
+            return ResponseEntity.internalServerError().body("Failed to extract CR11. Please try again.");
         }
     }
 
     // 2. Save the list of Shareholders
+    @SuppressWarnings("null")
     @PostMapping("/save-list")
     public ResponseEntity<List<Shareholder>> saveShareholders(@RequestBody List<Shareholder> shareholders) {
         return ResponseEntity.ok(shareholderService.saveAll(shareholders));
     }
 
     // 3. Get List
+    @SuppressWarnings("null")
     @GetMapping("/list/{companyId}")
     public ResponseEntity<List<Shareholder>> getShareholders(@PathVariable Long companyId) {
         return ResponseEntity.ok(shareholderService.getShareholdersByCompanyId(companyId));

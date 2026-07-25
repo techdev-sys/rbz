@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import './Sidebar.css';
 
-const Sidebar = ({ stages, currentStep, onStepChange, progress }) => {
+const Sidebar = ({ stages, currentStep, onStepChange, completedStages = new Set(), progress }) => {
     const [isCollapsed, setIsCollapsed] = useState(false);
 
     const toggleSidebar = () => {
@@ -14,10 +14,10 @@ const Sidebar = ({ stages, currentStep, onStepChange, progress }) => {
             <div className="rbz-sidebar-header">
                 {!isCollapsed && (
                     <div className="rbz-sidebar-brand">
-                        <div className="rbz-logo-icon">RBZ</div>
+                        <img src="/rbz-logo.png" alt="Reserve Bank of Zimbabwe" className="rbz-sidebar-logo" />
                         <div className="rbz-brand-text">
-                            <h5 className="mb-0">RBZ</h5>
-                            <small>Licensing System</small>
+                            <h5 className="mb-0">Reserve Bank of Zimbabwe</h5>
+                            <small>Institution Licensing</small>
                         </div>
                     </div>
                 )}
@@ -38,7 +38,7 @@ const Sidebar = ({ stages, currentStep, onStepChange, progress }) => {
                     )}
                     <ul className="rbz-nav-list">
                         {stages.map((stage) => {
-                            const isComplete = stage.id < currentStep;
+                            const isComplete = completedStages.has(stage.id);
                             const isCurrent = stage.id === currentStep;
                             const isDisabled = !stage.component;
 
@@ -86,7 +86,7 @@ const Sidebar = ({ stages, currentStep, onStepChange, progress }) => {
                             />
                         </div>
                         <small className="text-muted">
-                            Stage {currentStep} of {stages.length}
+                            {completedStages.size} of {stages.length} stages completed
                         </small>
                     </div>
                 </div>

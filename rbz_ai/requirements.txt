@@ -1,7 +1,8 @@
-fastapi
+fastapi[all]
 uvicorn
 python-multipart
 google-generativeai
+google-genai
 python-dotenv
 pypdf==3.17.4
 pytesseract==0.3.10

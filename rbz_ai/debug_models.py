@@ -3,7 +3,9 @@ import os
 
 with open("models_output.txt", "w") as f:
     f.write("Script starting...\n")
-    api_key = "AIzaSyDiWuZIHD6wGZWdjmhnKLLWtdjZpPvNEVU"
+    api_key = os.environ.get("GEMINI_API_KEY")
+    if not api_key:
+        raise RuntimeError("GEMINI_API_KEY is not configured")
     genai.configure(api_key=api_key)
 
     f.write("Listing models...\n")

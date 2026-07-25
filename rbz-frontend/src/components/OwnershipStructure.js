@@ -113,7 +113,7 @@ const OwnershipStructure = () => {
                                 <div className="d-flex gap-2">
                                     <Form.Control type="file" onChange={handleFileChange} accept=".pdf,.jpg,.png" />
                                     <Button onClick={handleUpload} disabled={loading || !file}>
-                                        {loading ? <Spinner size="sm" animation="border" /> : 'Analyze with AI'}
+                                        {loading ? <Spinner size="sm" animation="border" /> : 'Analyze Document'}
                                     </Button>
                                 </div>
                             </Form.Group>

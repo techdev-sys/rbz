@@ -1,24 +1,24 @@
 :root {
     --rbz-navy: #003366;
-    --rbz-gold: #D4AF37;
-    --rbz-light-gold: #F7E7B4;
+    --rbz-gold: #9A7B3F;
+    --rbz-light-gold: #B8966E;
     --rbz-dark-navy: #001F3F;
     --rbz-glass: rgba(255, 255, 255, 0.85);
     --rbz-gradient: linear-gradient(135deg, #003366 0%, #001F3F 100%);
-    --rbz-gradient-gold: linear-gradient(135deg, #D4AF37 0%, #B8860B 100%);
+    --rbz-gradient-gold: linear-gradient(135deg, #B8966E 0%, #7A6230 100%);
 }
 
 .premium-card {
-    background: var(--rbz-glass);
-    backdrop-filter: blur(10px);
-    border: 1px solid rgba(255, 255, 255, 0.2);
+    background: white;
+    border: 1px solid #D0D5DD;
     border-radius: 15px;
+    border-left: 3px solid #D0D5DD;
     box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.15);
     transition: transform 0.3s ease, box-shadow 0.3s ease;
 }
 
 .premium-card:hover {
-    transform: translateY(-5px);
+    transform: translateY(-2px);
     box-shadow: 0 12px 40px 0 rgba(31, 38, 135, 0.25);
 }
 
@@ -26,7 +26,7 @@
     background: var(--rbz-gradient);
     color: white;
     border-radius: 15px 15px 0 0 !important;
-    border-bottom: 3px solid var(--rbz-gold);
+    border-bottom: 1px solid rgba(255,255,255,0.15);
 }
 
 .premium-button {
@@ -41,14 +41,14 @@
 }
 
 .premium-button:hover {
-    background: var(--rbz-gradient-gold);
+    background: var(--rbz-dark-navy);
     color: white;
-    transform: scale(1.02);
-    box-shadow: 0 6px 20px rgba(212, 175, 55, 0.4);
+    transform: scale(1.01);
+    box-shadow: 0 6px 20px rgba(0, 51, 102, 0.25);
 }
 
 .premium-button-gold {
-    background: var(--rbz-gradient-gold);
+    background: #9A7B3F;
     color: white;
     border: none;
     padding: 12px 25px;
@@ -91,7 +91,7 @@
     background: white;
     padding: 20px;
     border-radius: 12px;
-    border-left: 5px solid var(--rbz-gold);
+    border-left: 3px solid #D0D5DD;
     text-align: center;
     box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
 }

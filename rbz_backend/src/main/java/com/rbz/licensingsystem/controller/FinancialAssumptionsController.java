@@ -21,13 +21,14 @@ public class FinancialAssumptionsController {
     /**
      * Save or update financial assumptions
      */
+    @SuppressWarnings("null")
     @PostMapping("/save")
     public ResponseEntity<?> saveFinancialAssumptions(@RequestBody FinancialAssumptions assumptions) {
         try {
             FinancialAssumptions saved = financialAssumptionsRepository.save(assumptions);
             return ResponseEntity.ok(saved);
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body("Error saving financial assumptions: " + e.getMessage());
+            return ResponseEntity.badRequest().body("Error saving financial assumptions. Please try again.");
         }
     }
 
@@ -40,13 +41,14 @@ public class FinancialAssumptionsController {
             List<FinancialAssumptions> assumptions = financialAssumptionsRepository.findByCompanyId(companyId);
             return ResponseEntity.ok(assumptions);
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body("Error fetching financial assumptions: " + e.getMessage());
+            return ResponseEntity.badRequest().body("Error fetching financial assumptions. Please try again.");
         }
     }
 
     /**
      * Get a single assumption by ID
      */
+    @SuppressWarnings("null")
     @GetMapping("/{id}")
     public ResponseEntity<?> getFinancialAssumptionById(@PathVariable Long id) {
         try {
@@ -54,20 +56,21 @@ public class FinancialAssumptionsController {
                     .map(ResponseEntity::ok)
                     .orElse(ResponseEntity.notFound().build());
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body("Error fetching financial assumption: " + e.getMessage());
+            return ResponseEntity.badRequest().body("Error fetching financial assumption. Please try again.");
         }
     }
 
     /**
      * Delete a financial assumption
      */
+    @SuppressWarnings("null")
     @DeleteMapping("/{id}")
     public ResponseEntity<?> deleteFinancialAssumption(@PathVariable Long id) {
         try {
             financialAssumptionsRepository.deleteById(id);
             return ResponseEntity.ok("Financial assumption deleted successfully");
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body("Error deleting financial assumption: " + e.getMessage());
+            return ResponseEntity.badRequest().body("Error deleting financial assumption. Please try again.");
         }
     }
 }

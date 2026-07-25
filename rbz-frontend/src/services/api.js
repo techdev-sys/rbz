@@ -1,6 +1,30 @@
 import axios from 'axios';
+import { clearSession, isStaff } from './session';
 
-export const API_URL = "http://localhost:8080/api";
+export const API_URL = "/api";
+
+/**
+ * Turn any caught error into text safe to show a user.
+ * Prefers the server's message (our backend always sends clean, human-readable
+ * text), maps network failures to plain language, and never surfaces raw
+ * axios/exception internals like "Request failed with status code 500".
+ */
+export const friendlyError = (err, fallback = 'Something went wrong. Please try again.') => {
+    const data = err?.response?.data;
+    if (typeof data === 'string' && data.trim() && data.length <= 300 && !data.startsWith('<')) {
+        return data;
+    }
+    if (data && typeof data === 'object') {
+        if (typeof data.message === 'string' && data.message.trim()) return data.message;
+        if (typeof data.error === 'string' && data.error.trim()) return data.error;
+    }
+    if (err?.code === 'ERR_NETWORK' || err?.message === 'Network Error') {
+        return 'Cannot reach the server. Please check your connection and try again.';
+    }
+    return fallback;
+};
+
+const PUBLIC_PATHS = new Set(['/', '/login', '/register', '/auth', '/staff-login']);
 
 // --- AXIOS INTERCEPTOR FOR JWT ---
 axios.interceptors.request.use(
@@ -11,25 +35,19 @@ axios.interceptors.request.use(
         }
         return config;
     },
-    (error) => {
-        return Promise.reject(error);
-    }
+    (error) => Promise.reject(error)
 );
 
 axios.interceptors.response.use(
     (response) => response,
     (error) => {
-        if (error.response && (error.response.status === 401 || error.response.status === 403)) {
-            // Clear invalid token to escape infinite 401/403 loops
-            localStorage.removeItem('jwtToken');
-            localStorage.removeItem('userRole');
-            localStorage.removeItem('currentCompanyId');
-            localStorage.removeItem('examinerUsername');
+        if (error.response && error.response.status === 401) {
+            const wasStaff = isStaff();
+            clearSession();
 
-            // Redirect to home page if not already there
             const path = window.location.pathname;
-            if (path !== '/' && path !== '/auth' && path !== '/staff-login') {
-                window.location.href = '/';
+            if (!PUBLIC_PATHS.has(path)) {
+                window.location.href = wasStaff ? '/staff-login' : '/login';
             }
         }
         return Promise.reject(error);
@@ -37,22 +55,12 @@ axios.interceptors.response.use(
 );
 
 // --- AUTHENTICATION ---
+export const registerApplicant = async (email, password, companyName, contactPersonName) => {
+    return axios.post(`${API_URL}/auth/register`, { email, password, companyName, contactPersonName });
+};
+
 export const authenticateUser = async (role, username, password) => {
-    // For examiner, use provided credentials
-    // For applicant/senior_be, use mock credentials
-    let user = username;
-    let pass = password || "password";
-
-    if (!username) {
-        if (role === "examiner") {
-            // Examiner requires real credentials — this should not be called without them
-            user = "pta";
-        } else if (role === "senior_be") {
-            user = "dd_be";
-        }
-    }
-
-    return axios.post(`${API_URL}/auth/login`, { username: user, password: pass, role });
+    return axios.post(`${API_URL}/auth/login`, { username, password, role });
 };
 
 // --- EXAMINER MANAGEMENT (Senior BE) ---
@@ -118,6 +126,15 @@ export const getApplicationsByStatus = async (status) => {
 
 export const getAssignedApplications = async (examinerName) => {
     return axios.get(`${API_URL}/company/assigned/${examinerName}`);
+};
+
+// --- ACTIVITY (timeline + staff work-queue signals) ---
+export const getActivityTimeline = async (companyId) => {
+    return axios.get(`${API_URL}/activity/${companyId}`);
+};
+
+export const getActivitySummary = async (companyIds) => {
+    return axios.get(`${API_URL}/activity/summary`, { params: { ids: companyIds.join(',') } });
 };
 
 
@@ -204,8 +221,22 @@ export const uploadCompanyOwnershipDocument = async (companyId, documentType, fi
     });
 };
 
+export const getOwnershipUploadedDocuments = async (companyId) => {
+    return axios.get(`${API_URL}/ownership/uploaded-documents/${companyId}`);
+};
+
+
+// --- BOARD COMMITTEES ---
+
+export const getBoardCommittees = async (companyId) => {
+    return axios.get(`${API_URL}/board-committee/company/${companyId}`);
+};
 
 // --- STAGE 2: DIRECTOR VETTING ---
+
+export const getDirectors = async (companyId) => {
+    return axios.get(`${API_URL}/director-vetting/company/${companyId}`);
+};
 
 export const uploadCV = async (file, companyId) => {
     const formData = new FormData();
@@ -305,11 +336,11 @@ export const getLoanDistribution = async (companyId) => {
 // --- STAGE 5: PRODUCTS & SERVICES ---
 
 export const saveProductsAndServices = async (productsData) => {
-    return axios.post(`${API_URL}/products/save`, productsData);
+    return axios.post(`${API_URL}/products-services/save`, productsData);
 };
 
 export const getProductsAndServices = async (companyId) => {
-    return axios.get(`${API_URL}/products/${companyId}`);
+    return axios.get(`${API_URL}/products-services/${companyId}`);
 };
 
 // --- STAGE 6: FINANCIAL PROJECTIONS ---
@@ -374,46 +405,115 @@ export const getGrowthAndDevelopment = async (companyId) => {
     return axios.get(`${API_URL}/growth/${companyId}`);
 };
 
-// --- STAGE 9: REPORT GENERATION & APPROVAL ---
+// --- REPORT GENERATION & APPROVAL (institution-neutral /api/report/**) ---
 
 export const generateReport = async (companyId) => {
-    return axios.get(`${API_URL}/mfi-report/generate/${companyId}`);
+    return axios.get(`${API_URL}/report/generate/${companyId}`);
 };
 
 export const getReport = async (companyId) => {
-    return axios.get(`${API_URL}/mfi-report/${companyId}`);
+    return axios.get(`${API_URL}/report/${companyId}`);
 };
 
 export const submitReport = async (companyId, reportData) => {
-    return axios.post(`${API_URL}/mfi-report/submit/${companyId}`, reportData);
+    return axios.post(`${API_URL}/report/submit/${companyId}`, reportData);
 };
 
 export const reviewReport = async (companyId, reviewData) => {
-    return axios.post(`${API_URL}/mfi-report/review/${companyId}`, reviewData);
+    return axios.post(`${API_URL}/report/review/${companyId}`, reviewData);
 };
 
 export const recommendReport = async (companyId, recommendData) => {
-    return axios.post(`${API_URL}/mfi-report/recommend/${companyId}`, recommendData);
+    return axios.post(`${API_URL}/report/recommend/${companyId}`, recommendData);
 };
 
 export const approveReport = async (companyId, approvalData) => {
-    return axios.post(`${API_URL}/mfi-report/approve/${companyId}`, approvalData);
+    return axios.post(`${API_URL}/report/approve/${companyId}`, approvalData);
 };
+
+// Multi-level approval chain (Phase 2)
+export const directorSignReport = async (companyId, data) => {
+    return axios.post(`${API_URL}/report/director-sign/${companyId}`, data);
+};
+
+export const governorSignReport = async (companyId, data) => {
+    return axios.post(`${API_URL}/report/governor-sign/${companyId}`, data);
+};
+
+// --- NEW INSTITUTION-SPECIFIC STAGES ---
+export const saveDepositProtection = async (data) =>
+    axios.post(`${API_URL}/deposit-protection/save`, data);
+export const getDepositProtection = async (companyId) =>
+    axios.get(`${API_URL}/deposit-protection/${companyId}`);
+
+export const saveLiquidityManagement = async (data) =>
+    axios.post(`${API_URL}/liquidity/save`, data);
+export const getLiquidityManagement = async (companyId) =>
+    axios.get(`${API_URL}/liquidity/${companyId}`);
+
+export const saveITCyberRisk = async (data) =>
+    axios.post(`${API_URL}/it-cyber-risk/save`, data);
+export const getITCyberRisk = async (companyId) =>
+    axios.get(`${API_URL}/it-cyber-risk/${companyId}`);
+
+export const saveRecoveryResolution = async (data) =>
+    axios.post(`${API_URL}/recovery-resolution/save`, data);
+export const getRecoveryResolution = async (companyId) =>
+    axios.get(`${API_URL}/recovery-resolution/${companyId}`);
 
 // --- SENIOR EXAMINER REPORT REVIEW ---
 
 export const getPendingReviewReports = async () => {
-    return axios.get(`${API_URL}/mfi-report/pending-review`);
+    return axios.get(`${API_URL}/report/pending-review`);
 };
 
 export const getReportsByStatus = async (status) => {
-    return axios.get(`${API_URL}/mfi-report/by-status/${status}`);
+    return axios.get(`${API_URL}/report/by-status/${status}`);
 };
 
 // --- EXAMINER REVIEW ---
 
+// Maximum upload size in bytes — must match backend FileSecurityHelper.MAX_FILE_SIZE_BYTES.
+export const MAX_UPLOAD_BYTES = 25 * 1024 * 1024; // 25 MB
+
+/**
+ * Upload a supporting document for a company application.
+ * Returns the server response which includes:
+ *   { documentId, verificationStatus, aiReason, sha256, version, summary, extractedData }
+ *
+ * `onProgress(percent)` is called as the upload progresses (0..100).
+ */
+export const uploadCompanyDocument = async (file, companyId, documentType, onProgress) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('companyId', companyId);
+    formData.append('documentType', documentType);
+
+    const response = await axios.post(`${API_URL}/documents/extract`, formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+        onUploadProgress: (e) => {
+            if (!onProgress || !e.total) return;
+            onProgress(Math.round((e.loaded * 100) / e.total));
+        },
+    });
+    return response.data;
+};
+
 export const getCompanyDocuments = async (companyId) => {
     return axios.get(`${API_URL}/documents/${companyId}`);
+};
+
+/**
+ * Examiner verdict on a single document.
+ * @param documentId  CompanyDocument PK
+ * @param verificationStatus  one of EXAMINER_VERIFIED | REJECTED | MANUAL_REVIEW
+ * @param examinerComment     free-text note (≤ 2000 chars)
+ */
+export const reviewDocument = async (documentId, verificationStatus, examinerComment) => {
+    return axios.patch(`${API_URL}/documents/${documentId}/review`, {
+        verificationStatus,
+        examinerComment,
+    });
 };
 
 export const getDocumentExtractionStatus = async (companyId) => {
@@ -426,4 +526,67 @@ export const getStageReviews = async (companyId) => {
 
 export const saveStageReview = async (reviewData) => {
     return axios.post(`${API_URL}/review/save`, reviewData);
+};
+
+// --- DIRECTOR QUESTIONNAIRE (DQ / Fit & Proper Form) ---
+
+export const saveDirectorQuestionnaire = async (dqData) => {
+    return axios.post(`${API_URL}/director-questionnaire/save`, dqData);
+};
+
+export const getDirectorQuestionnaire = async (directorId) => {
+    return axios.get(`${API_URL}/director-questionnaire/director/${directorId}`);
+};
+
+export const getCompanyDirectorQuestionnaires = async (companyId) => {
+    return axios.get(`${API_URL}/director-questionnaire/company/${companyId}`);
+};
+
+// Download a CompanyDocument record by its ID (Stage 9 docs)
+export const getDocumentDownloadUrl = (documentId) => {
+    return `${API_URL}/documents/download/${documentId}`;
+};
+
+// Download any uploaded file by its stored path (ownership, director, committee docs)
+export const getFileDownloadUrl = (filePath, fileName) => {
+    const params = new URLSearchParams({ path: filePath });
+    if (fileName) params.append('name', fileName);
+    return `${API_URL}/documents/download-by-path?${params.toString()}`;
+};
+
+// --- RISK SCORING ---
+export const getRiskScore = async (companyId) => {
+    return axios.get(`${API_URL}/risk/${companyId}`);
+};
+
+export const calculateAndSaveRiskScore = async (companyId) => {
+    return axios.post(`${API_URL}/risk/${companyId}/calculate`);
+};
+
+// --- AML SCREENING ---
+export const screenCompanyAml = async (companyId) => {
+    return axios.post(`${API_URL}/aml/screen/${companyId}`);
+};
+
+export const screenNameAml = async (name, idNumber) => {
+    return axios.post(`${API_URL}/aml/screen-name`, { name, idNumber });
+};
+
+// --- LICENSE LIFECYCLE ---
+export const getLicenseLifecycleDashboard = async () => {
+    return axios.get(`${API_URL}/license-lifecycle/dashboard`);
+};
+
+export const renewLicense = async (companyId, renewedBy) => {
+    return axios.post(`${API_URL}/license-lifecycle/renew/${companyId}`, { renewedBy });
+};
+
+// --- AUDIT LOG ---
+export const getAuditLogs = async (companyId) => {
+    const params = companyId ? { companyId } : {};
+    return axios.get(`${API_URL}/audit/logs`, { params });
+};
+
+export const verifyAuditIntegrity = async () => {
+    return axios.get(`${API_URL}/audit/verify-integrity`);
 };

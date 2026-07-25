@@ -2,9 +2,8 @@ package com.rbz.licensingsystem.model;
 
 import jakarta.persistence.*;
 import lombok.Data;
-import com.fasterxml.jackson.annotation.JsonProperty;
-import com.fasterxml.jackson.annotation.JsonAlias;
 import java.math.BigDecimal;
+import com.rbz.licensingsystem.config.PiiEncryptionConverter;
 
 @Entity
 @Data
@@ -30,11 +29,8 @@ public class Shareholder {
     private BigDecimal amountPaid;
 
     // --- Template Source: [71] Networth (Only for new applications) ---
-    // This comes from the Net Worth Statement we used in Stage 2, if the
-    // shareholder is a Director.
-    @JsonProperty("netWorthStatus")
-    @JsonAlias({ "net_worth_status", "verifiedNetWorthStatus" })
-    private String verifiedNetWorthStatus;
+    @Column(name = "verified_net_worth_status")
+    private String netWorthStatus;
 
     // Changes in shareholding tracking
     private String isNewShareholder; // YES/NO
@@ -44,6 +40,8 @@ public class Shareholder {
 
     // For corporate shareholders
     private String isCorporateShareholder; // YES/NO
+
+    @Convert(converter = PiiEncryptionConverter.class)
     @Column(columnDefinition = "TEXT")
     private String beneficialOwners; // Details of ultimate beneficial owners
 
@@ -79,6 +77,7 @@ public class Shareholder {
     private BigDecimal parValuePerShare;
     private BigDecimal totalIssuedShareCapital;
 
+    @Convert(converter = PiiEncryptionConverter.class)
     @Column(columnDefinition = "TEXT")
     private String ultimateBeneficialOwners; // Structured JSON for UBO details
 

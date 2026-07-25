@@ -1,0 +1,263 @@
+/* ===========================
+   DragDropFileUpload Component
+   =========================== */
+
+.ddfu-zone {
+    position: relative;
+    border: 2px dashed #b0bec5;
+    border-radius: 12px;
+    padding: 24px 18px;
+    background: #f8fafc;
+    text-align: center;
+    cursor: pointer;
+    transition: border-color 0.25s ease, background 0.25s ease, box-shadow 0.25s ease;
+    outline: none;
+    min-height: 110px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+}
+
+.ddfu-zone:hover,
+.ddfu-zone:focus {
+    border-color: #003366;
+    background: #eef3f9;
+    box-shadow: 0 0 0 3px rgba(0, 51, 102, 0.08);
+}
+
+.ddfu-zone.ddfu-dragging {
+    border-color: #D4AF37;
+    background: #fffbee;
+    box-shadow: 0 0 0 4px rgba(212, 175, 55, 0.2);
+    transform: scale(1.01);
+}
+
+.ddfu-zone.ddfu-uploaded {
+    border-color: #198754;
+    border-style: solid;
+    background: #f0fdf4;
+    cursor: default;
+}
+
+.ddfu-zone.ddfu-uploaded:hover {
+    border-color: #198754;
+    background: #e8faf0;
+    box-shadow: 0 0 0 3px rgba(25, 135, 84, 0.1);
+}
+
+.ddfu-corner-remove-btn {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    border: 1px solid #ef9a9a;
+    background: #fff5f5;
+    color: #c62828;
+    font-size: 0.78rem;
+    font-weight: 700;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    line-height: 1;
+    z-index: 2;
+    transition: background 0.2s ease, border-color 0.2s ease, transform 0.15s ease;
+}
+
+.ddfu-corner-remove-btn:hover {
+    background: #ffebee;
+    border-color: #c62828;
+    transform: scale(1.08);
+}
+
+.ddfu-zone.ddfu-error {
+    border-color: #dc3545;
+    background: #fff5f5;
+}
+
+/* Hidden native input */
+.ddfu-input {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    opacity: 0;
+    pointer-events: none;
+    overflow: hidden;
+}
+
+/* Upload icon cloud */
+.ddfu-icon {
+    font-size: 2.2rem;
+    margin-bottom: 4px;
+    line-height: 1;
+    transition: transform 0.2s ease;
+}
+
+.ddfu-zone:hover .ddfu-icon,
+.ddfu-zone.ddfu-dragging .ddfu-icon {
+    transform: translateY(-3px);
+}
+
+.ddfu-label {
+    font-size: 0.82rem;
+    color: #546e7a;
+    line-height: 1.4;
+    pointer-events: none;
+}
+
+.ddfu-label strong {
+    color: #003366;
+}
+
+.ddfu-hint {
+    font-size: 0.7rem;
+    color: #90a4ae;
+    pointer-events: none;
+}
+
+/* ---- File Preview Row ---- */
+.ddfu-preview {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: #ffffff;
+    border: 1px solid #e0e7ef;
+    border-radius: 10px;
+    padding: 9px 12px;
+    margin-top: 10px;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
+    transition: box-shadow 0.2s ease;
+}
+
+.ddfu-preview:hover {
+    box-shadow: 0 2px 8px rgba(0, 51, 102, 0.1);
+}
+
+.ddfu-file-icon {
+    font-size: 1.6rem;
+    flex-shrink: 0;
+}
+
+.ddfu-file-info {
+    flex: 1;
+    overflow: hidden;
+    text-align: left;
+}
+
+.ddfu-file-name {
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: #003366;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    display: block;
+}
+
+.ddfu-file-size {
+    font-size: 0.68rem;
+    color: #78909c;
+    display: block;
+    margin-top: 1px;
+}
+
+.ddfu-remove-btn {
+    flex-shrink: 0;
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    border: 1px solid #ffcdd2;
+    background: #fff5f5;
+    color: #e53935;
+    font-size: 0.8rem;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.2s, border-color 0.2s, transform 0.15s;
+    padding: 0;
+    line-height: 1;
+}
+
+.ddfu-remove-btn:hover {
+    background: #ffebee;
+    border-color: #e53935;
+    transform: scale(1.15);
+}
+
+/* ---- Status indicator bar ---- */
+.ddfu-status-bar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 8px;
+    padding: 6px 10px;
+    border-radius: 8px;
+    font-size: 0.74rem;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+}
+
+.ddfu-status-bar.status-uploaded {
+    background: #e8f5e9;
+    color: #2e7d32;
+    border: 1px solid #a5d6a7;
+}
+
+.ddfu-status-bar.status-processing {
+    background: #e3f2fd;
+    color: #1565c0;
+    border: 1px solid #90caf9;
+}
+
+.ddfu-status-bar.status-failed {
+    background: #ffebee;
+    color: #c62828;
+    border: 1px solid #ef9a9a;
+}
+
+.ddfu-status-bar.status-pending {
+    background: #eceff1;
+    color: #546e7a;
+    border: 1px solid #cfd8dc;
+}
+
+/* Status dot */
+.ddfu-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+
+.status-uploaded .ddfu-dot { background: #2e7d32; }
+.status-processing .ddfu-dot {
+    background: #1565c0;
+    animation: pulse-dot 1.2s ease-in-out infinite;
+}
+.status-failed .ddfu-dot { background: #c62828; }
+.status-pending .ddfu-dot { background: #90a4ae; }
+
+@keyframes pulse-dot {
+    0%, 100% { transform: scale(1); opacity: 1; }
+    50% { transform: scale(1.5); opacity: 0.6; }
+}
+
+/* Compact variant */
+.ddfu-compact .ddfu-zone {
+    min-height: 70px;
+    padding: 12px 14px;
+}
+
+.ddfu-compact .ddfu-icon {
+    font-size: 1.5rem;
+}
+
+.ddfu-compact .ddfu-label {
+    font-size: 0.75rem;
+}

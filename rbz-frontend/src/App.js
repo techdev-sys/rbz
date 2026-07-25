@@ -2,9 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import './App.css';
-import { Button, Badge } from 'react-bootstrap';
+import { Button } from 'react-bootstrap';
 import Sidebar from './components/Sidebar';
-import CircularProgress from './components/CircularProgress';
 import DirectorVetting from './components/DirectorVetting';
 import CompanyProfile from './components/CompanyProfile';
 import Stage2Ownership from './components/Stage2Ownership';
@@ -13,7 +12,14 @@ import CapitalStructure from './components/CapitalStructure';
 import ProductsAndServices from './components/ProductsAndServices';
 import FinancialProjections from './components/FinancialProjections';
 import GrowthAndDevelopment from './components/GrowthAndDevelopment';
+import ComplianceDocumentation from './components/ComplianceDocumentation';
 import Stage9DocumentsUpload from './components/Stage9DocumentsUpload';
+import Stage10ApplicationReview from './components/Stage10ApplicationReview';
+import StageBankCapitalAdequacy from './components/StageBankCapitalAdequacy';
+import StageDTMFIDepositProtection from './components/StageDTMFIDepositProtection';
+import StageBankLiquidity from './components/StageBankLiquidity';
+import StageBankITCyber from './components/StageBankITCyber';
+import StageBankRecoveryResolution from './components/StageBankRecoveryResolution';
 import ReportGeneration from './components/ReportGeneration';
 import LoginSelection from './components/LoginSelection';
 import ApplicantLanding from './components/ApplicantLanding';
@@ -21,18 +27,35 @@ import ApplicantAuth from './components/ApplicantAuth';
 import DashboardApplicant from './components/DashboardApplicant';
 import DashboardSenior from './components/DashboardSenior';
 import DashboardExaminer from './components/DashboardExaminer';
+import AIChatbot from './components/AIChatbot';
+import ApplicationChat from './components/ApplicationChat';
 import ExaminerInstitutionReview from './components/ExaminerInstitutionReview';
 import ReviewControlPanel from './components/ReviewControlPanel';
 import WorkflowStatusPanel from './components/WorkflowStatusPanel';
-import ApplicationChat from './components/ApplicationChat';
+import RequireAuth from './components/RequireAuth';
+import { getCompanyProfile } from './services/api';
+import { clearSession, getRole } from './services/session';
 
 // --- CORE WIZARD COMPONENT ---
 const WizardLayout = ({ userRole, companyData, setCompanyData }) => {
   const navigate = useNavigate();
   const [currentStep, setCurrentStep] = useState(1);
+  const [completedStages, setCompletedStages] = useState(new Set());
 
-  // Define Stages based on Role
-  let stages = [
+  const markComplete = (stageId) => {
+    setCompletedStages(prev => new Set([...prev, stageId]));
+  };
+
+  const institutionType = localStorage.getItem('institutionType') || 'MFI';
+  const isBank = institutionType === 'COMMERCIAL_BANK';
+  const isDTMFI = institutionType === 'DTMFI';
+  const isReadOnly = userRole === 'examiner' || userRole === 'senior_be';
+
+  // Build stage list dynamically by institution type:
+  // MFI:   9 core stages + Review
+  // DTMFI: 9 core stages + Deposit Protection + Review
+  // Bank:  9 core stages + Capital Adequacy + Liquidity + IT/Cyber + Recovery & Resolution + Review
+  const stages = [
     { id: 1, name: 'Company Profile', component: CompanyProfile },
     { id: 2, name: 'Ownership Structure', component: Stage2Ownership },
     { id: 3, name: 'Directors & Governance', component: DirectorVetting },
@@ -41,18 +64,27 @@ const WizardLayout = ({ userRole, companyData, setCompanyData }) => {
     { id: 6, name: 'Products & Services', component: ProductsAndServices },
     { id: 7, name: 'Financial Projections', component: FinancialProjections },
     { id: 8, name: 'Growth & Development', component: GrowthAndDevelopment },
-    { id: 9, name: 'Documents Upload', component: Stage9DocumentsUpload }
+    { id: 9, name: 'Compliance Declaration', component: ComplianceDocumentation },
+    { id: 10, name: 'Documents Upload', component: Stage9DocumentsUpload },
+    // DTMFI-only stage
+    ...(isDTMFI ? [{ id: 'deposit-protection', name: 'Deposit Protection (DIPF)', component: StageDTMFIDepositProtection }] : []),
+    // Bank-only stages
+    ...(isBank ? [
+      { id: 'cap-adequacy', name: 'Capital Adequacy (Basel III)', component: StageBankCapitalAdequacy },
+      { id: 'liquidity', name: 'Liquidity Management', component: StageBankLiquidity },
+      { id: 'it-cyber', name: 'IT & Cyber Risk', component: StageBankITCyber },
+      { id: 'recovery', name: 'Recovery & Resolution', component: StageBankRecoveryResolution },
+    ] : []),
+    { id: 11, name: 'Application Review', component: Stage10ApplicationReview },
+    ...(isReadOnly ? [{ id: 12, name: 'Report Generation', component: ReportGeneration }] : []),
   ];
 
-  if (userRole === 'examiner' || userRole === 'senior_be') {
-    stages.push({ id: 10, name: 'Report Generation', component: ReportGeneration });
-  }
-
-  const progress = (currentStep / stages.length) * 100;
+  const progress = stages.length > 0 ? (completedStages.size / stages.length) * 100 : 0;
 
   const handleProfileComplete = (data) => {
     setCompanyData(data);
     localStorage.setItem('currentCompanyId', data.id);
+    markComplete(1);
     setCurrentStep(2);
   };
 
@@ -66,61 +98,110 @@ const WizardLayout = ({ userRole, companyData, setCompanyData }) => {
         stages={stages}
         currentStep={currentStep}
         onStepChange={setCurrentStep}
+        completedStages={completedStages}
         progress={progress}
       />
 
       <div className="rbz-main-content">
-        <div className="py-3 px-4 position-relative" style={{ zIndex: 10, background: '#003366', borderBottom: '3px solid #c5a236' }}>
-          <div className="d-flex justify-content-between align-items-center">
+        <div className="rbz-workspace-topbar">
+          <div className="rbz-workspace-topbar-inner">
             {/* Left side: Logo and Title */}
-            <div className="d-flex align-items-center">
-              <img src="/rbz-logo.png" alt="Reserve Bank of Zimbabwe" style={{ height: '42px', marginRight: '16px', background: 'white', padding: '3px', borderRadius: '4px' }} />
+            <div className="rbz-workspace-identity">
+              <img src="/rbz-logo.png" alt="Reserve Bank of Zimbabwe" className="rbz-workspace-logo" />
               <div>
-                <h4 className="mb-0 fw-bold" style={{ color: 'white', fontSize: '1.05rem' }}>{stages[currentStep - 1]?.name}</h4>
-                <p className="mb-0 small" style={{ color: 'rgba(255,255,255,0.55)' }}>Step {currentStep} of {stages.length} — Microfinance Licensing Application</p>
+                <h4 className="rbz-workspace-title">{stages[currentStep - 1]?.name}</h4>
+                <p className="rbz-workspace-subtitle">Step {currentStep} of {stages.length} — Institution Licensing Application</p>
               </div>
             </div>
 
             {/* Right side: Actions, Badges */}
-            <div className="d-flex align-items-center gap-3">
-              <div className="d-none d-md-flex align-items-center">
-                <small style={{ color: 'rgba(255,255,255,0.5)', fontWeight: 500, letterSpacing: '0.3px' }}>Bank Supervision Division</small>
+            <div className="rbz-workspace-actions">
+              <div className="rbz-workspace-division d-none d-md-flex">
+                <small>Banking Supervision, Surveillance &amp; Financial Stability</small>
               </div>
-              <span style={{
-                background: userRole === 'applicant' ? 'rgba(255,255,255,0.12)' : 'rgba(197,162,54,0.2)',
-                color: userRole === 'applicant' ? 'rgba(255,255,255,0.8)' : '#c5a236',
-                padding: '5px 14px', borderRadius: '20px', fontSize: '0.75rem', fontWeight: 600, border: '1px solid rgba(255,255,255,0.15)'
-              }}>
+              <span className={`rbz-mode-badge ${userRole === 'applicant' ? 'applicant' : 'examiner'}`}>
                 {userRole === 'applicant' ? 'Applicant Mode' : 'Examiner Review Mode'}
               </span>
-              <Button size="sm" onClick={handleExitToDashboard}
-                style={{ background: 'transparent', border: '1px solid rgba(255,255,255,0.3)', color: 'rgba(255,255,255,0.8)', fontSize: '0.8rem', fontWeight: 500, borderRadius: '20px', padding: '5px 14px' }}>
+              <Button size="sm" onClick={handleExitToDashboard} className="rbz-exit-button">
                 ← Exit to Dashboard
               </Button>
             </div>
           </div>
         </div>
 
-        <div className="d-flex flex-grow-1" style={{ overflow: 'hidden' }}>
-          <div className="rbz-content-wrapper flex-grow-1 position-relative" style={{ overflowY: 'auto', maxHeight: 'calc(100vh - 120px)' }}>
-            {currentStep === 1 && <CompanyProfile onComplete={handleProfileComplete} readOnly={userRole === 'examiner' || userRole === 'senior_be'} />}
-            {currentStep === 2 && <Stage2Ownership companyId={companyData?.id || localStorage.getItem('currentCompanyId')} onComplete={() => setCurrentStep(3)} readOnly={userRole === 'examiner' || userRole === 'senior_be'} />}
-            {currentStep === 3 && <DirectorVetting companyData={companyData} onComplete={() => setCurrentStep(4)} readOnly={userRole === 'examiner' || userRole === 'senior_be'} />}
-            {currentStep === 4 && <ApplicationForm onComplete={() => setCurrentStep(5)} readOnly={userRole === 'examiner' || userRole === 'senior_be'} />}
-            {currentStep === 5 && <CapitalStructure onComplete={() => setCurrentStep(6)} readOnly={userRole === 'examiner' || userRole === 'senior_be'} />}
-            {currentStep === 6 && <ProductsAndServices onComplete={() => setCurrentStep(7)} readOnly={userRole === 'examiner' || userRole === 'senior_be'} />}
-            {currentStep === 7 && <FinancialProjections onComplete={() => setCurrentStep(8)} readOnly={userRole === 'examiner' || userRole === 'senior_be'} />}
-            {currentStep === 8 && <GrowthAndDevelopment onComplete={() => setCurrentStep(9)} readOnly={userRole === 'examiner' || userRole === 'senior_be'} />}
-            {currentStep === 9 && <Stage9DocumentsUpload onComplete={() => userRole === 'applicant' ? handleExitToDashboard() : setCurrentStep(10)} readOnly={userRole === 'examiner' || userRole === 'senior_be'} />}
-            {currentStep === 10 && userRole !== 'applicant' && <ReportGeneration />}
+        <div className="rbz-workspace-body d-flex flex-grow-1">
+          <div className="rbz-content-wrapper rbz-workspace-scroll flex-grow-1 position-relative">
 
-            <div className="text-center py-3 mt-4" style={{ backgroundColor: '#f8f9fa', borderTop: '1px solid #dee2e6', color: '#6c757d', fontSize: '0.85rem' }}>
+            {/* ── Stage Progress Indicator ── */}
+            <div className="rbz-stage-progress">
+              {/* Left: stage pill */}
+              <div className="rbz-stage-progress-identity">
+                <span className="rbz-stage-chip">
+                  STAGE {currentStep} OF {stages.length}
+                </span>
+                <span className="rbz-stage-progress-title">
+                  {stages[currentStep - 1]?.name}
+                </span>
+              </div>
+
+              {/* Centre: dot-based step row */}
+              <div className="rbz-stage-dots">
+                {stages.map((s, i) => {
+                  const done = completedStages.has(s.id);
+                  const active = i + 1 === currentStep;
+                  return (
+                    <div key={s.id} style={{ display: 'flex', alignItems: 'center' }}>
+                      <div
+                        title={`Stage ${s.id}: ${s.name}`}
+                        style={{
+                          width: active ? '28px' : '10px',
+                          height: '10px',
+                          borderRadius: '5px',
+                          background: done ? '#9A7B3F' : active ? '#003366' : '#D0D5DD',
+                          transition: 'all 0.3s ease',
+                          cursor: 'default'
+                        }}
+                      />
+                      {i < stages.length - 1 && (
+                        <div style={{ width: '10px', height: '2px', background: done ? '#9A7B3F' : '#D0D5DD', margin: '0 2px' }} />
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Right: progress % */}
+              <div className="rbz-stage-percent">
+                <div className="rbz-stage-percent-track">
+                  <div className="rbz-stage-percent-fill" style={{ width: `${progress}%` }} />
+                </div>
+                <small>{Math.round(progress)}%</small>
+              </div>
+            </div>
+            {/* ── End Stage Progress Indicator ── */}
+
+            {(() => {
+              const stage = stages[currentStep - 1];
+              if (!stage) return null;
+              const Comp = stage.component;
+              const cid = companyData?.id || localStorage.getItem('currentCompanyId');
+              const advance = () => { markComplete(stage.id); setCurrentStep(currentStep + 1); };
+
+              if (Comp === CompanyProfile) return <CompanyProfile onComplete={handleProfileComplete} readOnly={isReadOnly} />;
+              if (Comp === Stage2Ownership) return <Stage2Ownership companyId={cid} onComplete={advance} readOnly={isReadOnly} />;
+              if (Comp === DirectorVetting) return <DirectorVetting companyData={companyData} onComplete={advance} readOnly={isReadOnly} />;
+              if (Comp === Stage10ApplicationReview) return <Stage10ApplicationReview onGoToStage={setCurrentStep} onSubmit={handleExitToDashboard} />;
+              if (Comp === ReportGeneration) return <ReportGeneration />;
+              return <Comp onComplete={advance} readOnly={isReadOnly} />;
+            })()}
+
+            <div className="rbz-workspace-footer">
               &copy; 2026 Reserve Bank of Zimbabwe. Bank Supervision, Surveillance & Financial Stability.
             </div>
           </div>
 
           {(userRole === 'examiner' || userRole === 'senior_be') && (
-            <div style={{ width: '450px', minWidth: '450px', borderLeft: '4px solid var(--rbz-gold)', backgroundColor: '#f4f7f6', padding: '20px', overflowY: 'auto', maxHeight: 'calc(100vh - 120px)' }}>
+            <div className="rbz-supervisory-panel">
               <h5 className="fw-bold mb-3" style={{ color: 'var(--rbz-navy)' }}>Supervisory Intelligence</h5>
               <WorkflowStatusPanel
                 companyId={companyData?.id || localStorage.getItem('currentCompanyId')}
@@ -131,7 +212,7 @@ const WizardLayout = ({ userRole, companyData, setCompanyData }) => {
                 companyId={companyData?.id || localStorage.getItem('currentCompanyId')}
                 stageId={stages[currentStep - 1]?.id}
                 stageName={stages[currentStep - 1]?.name}
-                examinerName="P. T. Madamombe"
+                examinerName={localStorage.getItem('examinerUsername') || 'Examiner'}
               />
             </div>
           )}
@@ -139,11 +220,22 @@ const WizardLayout = ({ userRole, companyData, setCompanyData }) => {
       </div>
 
       {userRole === 'applicant' && (
-        <ApplicationChat
-          companyId={companyData?.id || localStorage.getItem('currentCompanyId')}
-          currentUserRole="applicant"
-          userName={localStorage.getItem('applicantName') || 'Applicant'}
-        />
+        <>
+          <AIChatbot
+            companyId={companyData?.id || localStorage.getItem('currentCompanyId')}
+            currentStage={currentStep}
+            stageName={stages[currentStep - 1]?.name}
+            institutionName={localStorage.getItem('institutionName') || ''}
+            userName={localStorage.getItem('applicantName') || 'Applicant'}
+          />
+          {/* Human channel to the examination team — stacked above the AI guide bubble */}
+          <ApplicationChat
+            companyId={companyData?.id || localStorage.getItem('currentCompanyId')}
+            currentUserRole="applicant"
+            userName={localStorage.getItem('applicantName') || 'Applicant'}
+            bottomOffset={96}
+          />
+        </>
       )}
     </div>
   );
@@ -161,11 +253,10 @@ function App() {
 
 function AppRoutes() {
   const navigate = useNavigate();
-  const [userRole, setUserRole] = useState(localStorage.getItem('userRole') || null);
+  const [userRole, setUserRole] = useState(getRole());
   const [companyData, setCompanyData] = useState(null);
 
   useEffect(() => {
-    // If we land on a path that requires auth, we ensure userRole is synced
     if (userRole) {
       localStorage.setItem('userRole', userRole);
     }
@@ -178,16 +269,24 @@ function AppRoutes() {
   };
 
   const handleLogout = () => {
+    const wasStaff = userRole === 'examiner' || userRole === 'senior_be';
+    clearSession();
     setUserRole(null);
-    localStorage.removeItem('userRole');
-    localStorage.removeItem('currentCompanyId');
-    localStorage.removeItem('examinerUsername');
     setCompanyData(null);
-    navigate('/login');
+    navigate(wasStaff ? '/staff-login' : '/');
   };
 
-  const handleStartApp = (existingId, role) => {
-    if (existingId) localStorage.setItem('currentCompanyId', existingId);
+  const handleStartApp = async (existingId, role) => {
+    if (existingId) {
+      localStorage.setItem('currentCompanyId', existingId);
+      try {
+        const response = await getCompanyProfile(existingId);
+        if (response.data?.id) {
+          setCompanyData(response.data);
+        }
+      } catch (err) {
+      }
+    }
     navigate(`/${role || userRole}/application`);
   };
 
@@ -203,28 +302,62 @@ function AppRoutes() {
 
   return (
     <Routes>
+      {/* Public landing */}
       <Route path="/" element={<ApplicantLanding />} />
-      <Route path="/auth" element={<ApplicantAuth onLogin={handleRoleSelect} />} />
+
+      {/* Public applicant auth (separate URLs for sign-in vs registration) */}
+      <Route path="/login" element={<ApplicantAuth onLogin={handleRoleSelect} />} />
+      <Route path="/register" element={<ApplicantAuth onLogin={handleRoleSelect} />} />
+      {/* Legacy /auth alias */}
+      <Route path="/auth" element={<Navigate to="/login" replace />} />
+
+      {/* Restricted RBZ staff portal */}
       <Route path="/staff-login" element={<LoginSelection onSelectRole={handleRoleSelect} />} />
-      <Route path="/login" element={<Navigate to="/auth" />} />
 
-      {/* Applicant Routes */}
-      <Route path="/applicant" element={<DashboardApplicant onLogout={handleLogout} onStartApp={handleStartApp} />} />
-      <Route path="/applicant/application" element={<WizardLayout userRole="applicant" companyData={companyData} setCompanyData={setCompanyData} />} />
-
-      {/* Examiner Routes */}
-      <Route path="/examiner" element={<DashboardExaminer onLogout={handleLogout} onReviewApp={handleReviewApp} />} />
-      <Route path="/examiner/institution-review" element={
-        <ExaminerInstitutionReview
-          companyId={companyData?.id || localStorage.getItem('currentCompanyId')}
-          onBack={() => navigate('/examiner')}
-        />
+      {/* Applicant — protected */}
+      <Route path="/applicant" element={
+        <RequireAuth allow="applicant">
+          <DashboardApplicant onLogout={handleLogout} onStartApp={handleStartApp} />
+        </RequireAuth>
       } />
-      <Route path="/examiner/review" element={<WizardLayout userRole="examiner" companyData={companyData} setCompanyData={setCompanyData} />} />
+      <Route path="/applicant/application" element={
+        <RequireAuth allow="applicant">
+          <WizardLayout userRole="applicant" companyData={companyData} setCompanyData={setCompanyData} />
+        </RequireAuth>
+      } />
 
-      {/* Senior Examiner Routes */}
-      <Route path="/senior_be" element={<DashboardSenior onLogout={handleLogout} onReviewApp={handleReviewApp} />} />
-      <Route path="/senior_be/review" element={<WizardLayout userRole="senior_be" companyData={companyData} setCompanyData={setCompanyData} />} />
+      {/* Examiner — protected */}
+      <Route path="/examiner" element={
+        <RequireAuth allow="examiner">
+          <DashboardExaminer onLogout={handleLogout} onReviewApp={handleReviewApp} />
+        </RequireAuth>
+      } />
+      <Route path="/examiner/institution-review" element={
+        <RequireAuth allow="examiner">
+          <ExaminerInstitutionReview
+            companyId={companyData?.id || localStorage.getItem('currentCompanyId')}
+            onBack={() => navigate('/examiner')}
+          />
+        </RequireAuth>
+      } />
+      {/* Senior Examiner — protected */}
+      <Route path="/senior_be" element={
+        <RequireAuth allow="senior_be">
+          <DashboardSenior onLogout={handleLogout} onReviewApp={handleReviewApp} />
+        </RequireAuth>
+      } />
+      <Route path="/senior_be/review" element={
+        <RequireAuth allow="senior_be">
+          <ExaminerInstitutionReview
+            companyId={companyData?.id || localStorage.getItem('currentCompanyId')}
+            viewerRole="senior_be"
+            onBack={() => navigate('/senior_be')}
+          />
+        </RequireAuth>
+      } />
+
+      {/* Catch-all */}
+      <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );
 }

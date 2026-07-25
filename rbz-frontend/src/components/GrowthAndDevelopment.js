@@ -31,7 +31,6 @@ const GrowthAndDevelopment = ({ onComplete }) => {
                 setFormData(response.data);
             }
         } catch (err) {
-            console.log('No existing growth data');
         }
     };
 
@@ -65,10 +64,10 @@ const GrowthAndDevelopment = ({ onComplete }) => {
     };
 
     return (
-        <Container className="mt-4">
+        <Container fluid className="px-4 pt-4 pb-4">
             <Card className="shadow-sm">
-                <Card.Header as="h4" className="bg-primary text-white">
-                    Stage 8: Growth Strategies & Developmental Value
+                <Card.Header className="bg-primary text-white">
+                    <h5 className="mb-0">Stage 8: Growth Strategies & Developmental Value</h5>
                 </Card.Header>
                 <Card.Body>
                     {error && <Alert variant="danger">{error}</Alert>}

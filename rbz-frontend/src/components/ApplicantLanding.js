@@ -1,140 +1,324 @@
-import React from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Button } from 'react-bootstrap';
 import './ApplicantLanding.css';
 
-const ApplicantLanding = ({ onLogin }) => {
+const INSTITUTION_TYPES = [
+    {
+        id: 'mfi',
+        tag: 'CREDIT-ONLY MFI',
+        abbr: 'MFI',
+        title: 'Microfinance Institution',
+        subtitle: 'Credit-only lending to individuals & SMEs',
+        capital: 'USD 25,000',
+        stages: '10',
+        products: ['Personal Loans', 'Business Loans', 'Agricultural Loans', 'Group Lending'],
+    },
+    {
+        id: 'dtmfi',
+        tag: 'DEPOSIT-TAKING MFI',
+        abbr: 'DTMFI',
+        title: 'Deposit-Taking MFI',
+        subtitle: 'Micro-deposits and lending under RBZ supervision',
+        capital: 'USD 25,000',
+        stages: '11',
+        products: ['Micro-Savings', 'Term Deposits', 'Consumer Loans', 'DIPF Registration'],
+    },
+    {
+        id: 'bank',
+        tag: 'COMMERCIAL BANK',
+        abbr: 'BANK',
+        title: 'Commercial Bank',
+        subtitle: 'Full-service banking under the Basel III framework',
+        capital: 'USD 30,000,000',
+        stages: '14',
+        products: ['Current & Savings Accounts', 'Trade Finance', 'Basel III Compliance', 'IT & Cyber Risk Assessment'],
+    },
+];
+
+const ApplicantLanding = () => {
     const navigate = useNavigate();
+    const heroRef = useRef(null);
+    const [isHeaderCompact, setIsHeaderCompact] = useState(false);
 
-    const handleApplicantAuth = () => {
-        navigate('/auth');
-    };
+    const goLogin = () => navigate('/login');
+    const goRegister = () => navigate('/register');
 
-    const handleStaffPortal = () => {
-        navigate('/staff-login');
-    };
+    useEffect(() => {
+        const hero = heroRef.current;
+        if (!hero) return undefined;
+
+        const observer = new IntersectionObserver(([entry]) => {
+            const hasScrolledPastHero = !entry.isIntersecting && entry.boundingClientRect.top < 0;
+            setIsHeaderCompact(hasScrolledPastHero);
+        }, {
+            rootMargin: '-78px 0px 0px 0px',
+            threshold: 0,
+        });
+
+        observer.observe(hero);
+        return () => observer.disconnect();
+    }, []);
 
     return (
         <div className="applicant-landing-container">
-            {/* Navigation Bar */}
-            <nav className="landing-navbar">
-                <div className="landing-logo-section">
-                    <img src="/rbz-logo.png" alt="RBZ Logo" className="landing-logo" />
-                    <div>
-                        <h1 className="landing-title">Reserve Bank of Zimbabwe</h1>
-                        <p className="landing-subtitle">Licensing & Supervision Portal</p>
-                    </div>
-                </div>
-                <div className="landing-nav-links d-none d-md-flex">
-                    <Button variant="link" className="text-white text-decoration-none" onClick={handleStaffPortal}>Staff Portal</Button>
-                    <Button variant="outline-light" className="ms-3 rounded-pill px-4 fw-bold" onClick={handleApplicantAuth}>Log In</Button>
-                    <Button variant="warning" className="rounded-pill px-4 fw-bold" style={{ backgroundColor: '#D4AF37', borderColor: '#D4AF37', color: '#003366' }} onClick={handleApplicantAuth}>Create Account</Button>
-                </div>
-            </nav>
 
-            {/* Hero Section */}
-            <section className="hero-section">
-                <div className="hero-content">
-                    <h1 className="hero-title">
-                        Secure Your <span>Microfinance</span> License Online
-                    </h1>
-                    <p className="hero-text">
-                        The Reserve Bank of Zimbabwe provides a streamlined, transparent, and digital platform to submit, manage, and track your licensing applications. Start your journey today.
-                    </p>
-                    <div className="hero-actions flex-wrap">
-                        <button className="btn-gold-primary" onClick={handleApplicantAuth}>
-                            Create an Account
-                        </button>
-                        <button className="btn-outline-light-custom" onClick={handleApplicantAuth}>
-                            Log In
-                        </button>
+            {/* ============== TOP BAR ============== */}
+            <header className={isHeaderCompact ? 'landing-topbar landing-topbar-compact' : 'landing-topbar'}>
+                <div className="landing-topbar-inner">
+                    <div className="landing-brand">
+                        <img src="/rbz-logo.png" alt="Reserve Bank of Zimbabwe" className="landing-logo" />
+                        <div className="landing-brand-copy">
+                            <div className="landing-brand-title">Reserve Bank of Zimbabwe</div>
+                            <div className="landing-brand-sub">Banking Supervision, Surveillance &amp; Financial Stability</div>
+                        </div>
                     </div>
+                    <nav className="landing-nav">
+                        <button className="landing-nav-link" onClick={() => document.getElementById('licence-types')?.scrollIntoView({ behavior: 'smooth' })}>
+                            Licence Types
+                        </button>
+                        <button className="landing-nav-link" onClick={() => document.getElementById('how-it-works')?.scrollIntoView({ behavior: 'smooth' })}>
+                            How It Works
+                        </button>
+                        <button className="landing-nav-link" onClick={() => document.getElementById('support')?.scrollIntoView({ behavior: 'smooth' })}>
+                            Contact
+                        </button>
+                        <button className="btn-secondary-light" onClick={goLogin}>Sign In</button>
+                        <button className="btn-primary-gold" onClick={goRegister}>Apply Now</button>
+                    </nav>
                 </div>
+            </header>
 
-                <div className="hero-graphics">
-                    <div className="glass-card">
-                        <h4>Application Process Overview</h4>
-                        <div className="progress-step-item">
-                            <div className="step-circle">1</div>
-                            <div>
-                                <h6 className="mb-0 fw-bold">Company Profile</h6>
-                                <small className="text-light opacity-75">Basic corporate details & structure</small>
+            {/* ============== HERO ============== */}
+            <section className="hero-section" ref={heroRef}>
+                <div className="hero-grid">
+                    <div className="hero-content">
+                        <span className="hero-eyebrow">Bank Supervision &middot; Licensing Division</span>
+                        <h1 className="hero-title">
+                            Financial Institution<br />
+                            <span>Licensing Portal</span>
+                        </h1>
+                        <p className="hero-text">
+                            The official Reserve Bank of Zimbabwe portal for submitting and managing
+                            financial institution licensing applications. Three regulated pathways —
+                            Credit-Only MFI, Deposit-Taking MFI, and Commercial Bank — each guided
+                            through every compliance stage with full examiner oversight.
+                        </p>
+                        <div className="hero-actions">
+                            <button className="btn-primary-gold btn-lg" onClick={goRegister}>
+                                Submit an Application
+                            </button>
+                            <button className="btn-ghost-light btn-lg" onClick={goLogin}>
+                                Continue Existing Application
+                            </button>
+                        </div>
+                        <div className="hero-trust">
+                            <div className="trust-item">
+                                <div className="trust-number">3</div>
+                                <div className="trust-label">Licence categories</div>
+                            </div>
+                            <div className="trust-divider" />
+                            <div className="trust-item">
+                                <div className="trust-number">14</div>
+                                <div className="trust-label">Guided stages</div>
+                            </div>
+                            <div className="trust-divider" />
+                            <div className="trust-item">
+                                <div className="trust-number">49+</div>
+                                <div className="trust-label">Compliance checks</div>
+                            </div>
+                            <div className="trust-divider" />
+                            <div className="trust-item">
+                                <div className="trust-number">24/7</div>
+                                <div className="trust-label">Save &amp; resume</div>
                             </div>
                         </div>
-                        <div className="progress-step-item">
-                            <div className="step-circle">2</div>
-                            <div>
-                                <h6 className="mb-0 fw-bold">Director Vetting</h6>
-                                <small className="text-light opacity-75">Fit & proper assessments (DQ forms)</small>
+                    </div>
+
+                    {/* Formal licensing overview panel */}
+                    <div className="hero-overview-panel">
+                        <div className="hop-header">
+                            <div className="hop-label">Regulatory Licensing Pathways</div>
+                            <div className="hop-sub">Reserve Bank of Zimbabwe Act [Chapter 22:15]</div>
+                        </div>
+                        <div className="hop-table">
+                            <div className="hop-table-head">
+                                <span>Institution Type</span>
+                                <span>Min. Capital</span>
+                                <span>Stages</span>
+                            </div>
+                            {INSTITUTION_TYPES.map((t, i) => (
+                                <div className="hop-table-row" key={t.id}>
+                                    <div className="hop-row-main">
+                                        <span className="hop-abbr">{t.abbr}</span>
+                                        <span className="hop-row-title">{t.title}</span>
+                                    </div>
+                                    <div className="hop-row-capital">{t.capital}</div>
+                                    <div className="hop-row-stages">{t.stages}</div>
+                                </div>
+                            ))}
+                        </div>
+                        <div className="hop-footer">
+                            <div className="hop-footer-item">
+                                <span className="hop-footer-dot hop-dot-green" />
+                                49+ automated compliance checks per submission
+                            </div>
+                            <div className="hop-footer-item">
+                                <span className="hop-footer-dot hop-dot-gold" />
+                                Full examiner review with real-time status tracking
+                            </div>
+                            <div className="hop-footer-item">
+                                <span className="hop-footer-dot hop-dot-blue" />
+                                Encrypted data &middot; JWT authentication &middot; Audit logs
                             </div>
                         </div>
-                        <div className="progress-step-item">
-                            <div className="step-circle">3</div>
-                            <div>
-                                <h6 className="mb-0 fw-bold">Business Plan</h6>
-                                <small className="text-light opacity-75">Financial projections & models</small>
-                            </div>
-                        </div>
-                        <div className="progress-step-item">
-                            <div className="step-circle">4</div>
-                            <div>
-                                <h6 className="mb-0 fw-bold">Document Uploads</h6>
-                                <small className="text-light opacity-75">Secure enclosures & proofs</small>
-                            </div>
-                        </div>
+                        <button className="hop-cta" onClick={goRegister}>
+                            Begin Licence Application
+                            <span className="hop-cta-arrow">&#8594;</span>
+                        </button>
                     </div>
                 </div>
             </section>
 
-            {/* Features Section */}
-            <section className="features-section">
+            {/* ============== LICENCE TYPE CARDS ============== */}
+            <section className="licence-section" id="licence-types">
                 <div className="section-header">
-                    <h2>Why Use the Digital Portal?</h2>
-                    <p>We've modernized our licensing process to ensure efficiency, transparency, and security for all prospective financial institutions.</p>
+                    <span className="section-eyebrow">Licence categories</span>
+                    <h2>Select your institution type to begin</h2>
+                    <p>The portal automatically configures application stages, document requirements, and compliance rules based on your selected institution type.</p>
                 </div>
 
+                <div className="licence-cards">
+                    {INSTITUTION_TYPES.map((type) => (
+                        <div className={`licence-card licence-card-${type.id}`} key={type.id}>
+                            <div className="lc-header">
+                                <span className="lc-abbr-tag">{type.abbr}</span>
+                                <span className="lc-stages-count">{type.stages} stages</span>
+                            </div>
+
+                            <div className="lc-tag">{type.tag}</div>
+                            <h3 className="lc-title">{type.title}</h3>
+                            <p className="lc-subtitle">{type.subtitle}</p>
+
+                            <div className="lc-capital">
+                                <span className="lc-capital-label">Minimum capital requirement</span>
+                                <span className="lc-capital-value">{type.capital}</span>
+                            </div>
+
+                            <ul className="lc-features">
+                                {type.products.map(p => (
+                                    <li key={p}>
+                                        <span className="lc-check">&#10003;</span>
+                                        {p}
+                                    </li>
+                                ))}
+                            </ul>
+
+                            <button className="lc-apply-btn" onClick={goRegister}>
+                                Apply for this licence
+                            </button>
+                        </div>
+                    ))}
+                </div>
+            </section>
+
+            {/* ============== HOW IT WORKS ============== */}
+            <section className="how-section" id="how-it-works">
+                <div className="section-header">
+                    <span className="section-eyebrow">How it works</span>
+                    <h2>From registration to a licence — entirely online</h2>
+                    <p>The portal mirrors the official RBZ checklist and adapts the application journey to your institution type automatically.</p>
+                </div>
+                <div className="how-steps">
+                    <div className="how-step">
+                        <div className="how-step-number">01</div>
+                        <h4>Register &amp; select licence type</h4>
+                        <p>Create a secure account, choose between Credit-Only MFI, DTMFI, or Commercial Bank, and the system configures your stages accordingly.</p>
+                    </div>
+                    <div className="how-step">
+                        <div className="how-step-number">02</div>
+                        <h4>Complete all application stages</h4>
+                        <p>Work through guided stages — ownership, directors, capital structure, business plan, projections, compliance, and document upload. Save and resume any time.</p>
+                    </div>
+                    <div className="how-step">
+                        <div className="how-step-number">03</div>
+                        <h4>Examiner review &amp; determination</h4>
+                        <p>Your submission is reviewed by RBZ examiners against 49+ regulatory criteria. Track progress in real time and respond to feedback within the portal.</p>
+                    </div>
+                </div>
+            </section>
+
+            {/* ============== FEATURES ============== */}
+            <section className="features-section" id="features">
+                <div className="section-header">
+                    <span className="section-eyebrow">Portal capabilities</span>
+                    <h2>Built for transparency, security, and regulatory rigour</h2>
+                </div>
                 <div className="feature-cards">
                     <div className="feature-card">
-                        <div className="feature-icon">⚡</div>
-                        <h4>Track Status in Real-Time</h4>
-                        <p>No more physical follow-ups. View the exact stage of your application and know immediately when examiners require additional details or edits.</p>
+                        <div className="feature-label">Compliance Review</div>
+                        <h4>Systematic regulatory checks</h4>
+                        <p>49+ rule checks evaluate every submission — capital adequacy, director vetting, ownership compliance — before it reaches an examiner.</p>
                     </div>
                     <div className="feature-card">
-                        <div className="feature-icon">🔒</div>
-                        <h4>Bank-Grade Security</h4>
-                        <p>Your sensitive corporate documents and financial projections are encrypted and securely stored following central banking security standards.</p>
+                        <div className="feature-label">Data Security</div>
+                        <h4>Bank-grade security controls</h4>
+                        <p>Encrypted data in transit and at rest, role-based access controls, JWT session management, and full audit trails of every action on your file.</p>
                     </div>
                     <div className="feature-card">
-                        <div className="feature-icon">💾</div>
-                        <h4>Save & Resume</h4>
-                        <p>Licensing applications are extensive. Save your progress at any time and return later to complete the required forms without losing your data.</p>
+                        <div className="feature-label">Status Tracking</div>
+                        <h4>Real-time application visibility</h4>
+                        <p>Know exactly which stage your application is at, who is reviewing it, which rules passed or failed, and what is required to proceed.</p>
                     </div>
                 </div>
             </section>
 
-            {/* Support Section */}
-            <section className="support-section py-5 d-flex justify-content-center">
-                <div className="text-center bg-white p-5 rounded-4 shadow-sm" style={{ maxWidth: '800px', border: '1px solid #e9ecef' }}>
-                    <h3 style={{ color: '#003366', fontWeight: 'bold' }}>Need Assistance?</h3>
-                    <p className="text-muted mb-4">Our support team is available during working hours to assist applicants.</p>
-                    <div className="d-flex justify-content-center gap-4 flex-wrap">
-                        <div className="d-flex align-items-center gap-2">
-                            <span style={{ fontSize: '1.5rem' }}>📧</span>
-                            <span className="fw-bold">licensing@rbz.zw</span>
+            {/* ============== SUPPORT ============== */}
+            <section className="support-section" id="support">
+                <div className="support-card">
+                    <div>
+                        <div className="section-eyebrow centered">Need assistance?</div>
+                        <h3>Our licensing team is here to help</h3>
+                        <p>Working-hours support for institutions navigating the Credit-Only MFI, DTMFI, or Commercial Bank licensing process.</p>
+                    </div>
+                    <div className="support-contact-grid">
+                        <div className="support-contact-item">
+                            <div className="support-contact-label">Email</div>
+                            <a href="mailto:licensing@rbz.zw" className="support-contact-value">licensing@rbz.zw</a>
                         </div>
-                        <div className="d-flex align-items-center gap-2">
-                            <span style={{ fontSize: '1.5rem' }}>📞</span>
-                            <span className="fw-bold">+263 242 703000</span>
+                        <div className="support-contact-item">
+                            <div className="support-contact-label">Telephone</div>
+                            <a href="tel:+263242703000" className="support-contact-value">+263 242 703 000</a>
+                        </div>
+                        <div className="support-contact-item">
+                            <div className="support-contact-label">Address</div>
+                            <div className="support-contact-value-static">80 Samora Machel Avenue, Harare</div>
+                        </div>
+                        <div className="support-contact-item">
+                            <div className="support-contact-label">Office Hours</div>
+                            <div className="support-contact-value-static">Mon – Fri, 08:00 – 16:30</div>
                         </div>
                     </div>
                 </div>
             </section>
 
-            {/* Footer */}
+            {/* ============== FOOTER ============== */}
             <footer className="landing-footer">
-                <p>&copy; {new Date().getFullYear()} Reserve Bank of Zimbabwe. Bank Supervision, Surveillance & Financial Stability Division.</p>
-                <div className="mt-3">
-                    <Button variant="link" className="text-muted text-decoration-none small" onClick={handleStaffPortal}>Authorized Staff Access</Button>
+                <div className="landing-footer-inner">
+                    <div>
+                        <div className="footer-brand">Reserve Bank of Zimbabwe</div>
+                        <div className="footer-sub">Bank Supervision, Surveillance &amp; Financial Stability Division</div>
+                    </div>
+                    <div className="footer-licence-types">
+                        <span>Credit-Only MFI</span>
+                        <span className="footer-dot">&middot;</span>
+                        <span>Deposit-Taking MFI</span>
+                        <span className="footer-dot">&middot;</span>
+                        <span>Commercial Bank</span>
+                    </div>
+                    <div className="footer-meta">
+                        <div>&copy; {new Date().getFullYear()} Reserve Bank of Zimbabwe. All rights reserved.</div>
+                        <div className="footer-tiny">For technical assistance: licensing@rbz.zw &middot; +263 242 703 000</div>
+                    </div>
                 </div>
             </footer>
         </div>

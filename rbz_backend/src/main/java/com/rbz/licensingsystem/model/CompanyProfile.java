@@ -6,6 +6,7 @@ import lombok.Data;
 import java.time.LocalDate;
 
 import com.rbz.licensingsystem.model.enums.ApplicationStage;
+import com.rbz.licensingsystem.model.enums.InstitutionType;
 import com.rbz.licensingsystem.model.enums.StageStatus;
 
 @Entity
@@ -41,7 +42,16 @@ public class CompanyProfile {
     private String auditors;
 
     // --- Template Source: [31] Licence Type (Credit-Only or Deposit-Taking) ---
+    // Legacy free-text field — kept for backward compatibility. Prefer institutionType.
     private String licenseType;
+
+    // Structured institution classification — authoritative from v2 onwards.
+    @Enumerated(EnumType.STRING)
+    private InstitutionType institutionType;
+
+    // Bank-specific fields (null for MFI / DTMFI)
+    private String swiftCode;
+    private Integer branchCount;
 
     // --- Template Source: [41] Chief Executive Officer ---
     private String chiefExecutiveOfficer;
@@ -52,6 +62,16 @@ public class CompanyProfile {
     // Date the license was granted
     @JsonFormat(pattern = "yyyy-MM-dd")
     private LocalDate licenseGrantedDate;
+
+    // License lifecycle
+    @JsonFormat(pattern = "yyyy-MM-dd")
+    private LocalDate licenseExpiryDate;
+
+    private String renewalStatus; // CURRENT, DUE_SOON, OVERDUE, RENEWED
+
+    // Risk score (0-100, higher = lower risk)
+    private Integer riskScore;
+    private String riskCategory; // LOW, MEDIUM, HIGH, CRITICAL
 
     // --- Template Source: [49] Contact Telephone ---
     private String contactTelephone;
@@ -73,6 +93,10 @@ public class CompanyProfile {
 
     private String applicationFeeReceiptNumber;
 
+    // Applicant account password (BCrypt hashed — write-only, never returned in JSON)
+    @com.fasterxml.jackson.annotation.JsonProperty(access = com.fasterxml.jackson.annotation.JsonProperty.Access.WRITE_ONLY)
+    private String password;
+
     // Logo
     private String logoPath; // Path to uploaded logo image
 
@@ -90,11 +114,36 @@ public class CompanyProfile {
     // --- Workflow Management ---
     private String applicationStatus = "DRAFT"; // DRAFT, SUBMITTED, ASSIGNED, UNDER_REVIEW, COMPLETED
     private String assignedExaminer; // Name of the examiner assigned by Senior BE
-    
+
     // --- Stage-Gated Workflow Engine ---
     @Enumerated(EnumType.STRING)
     private ApplicationStage workflowStage = ApplicationStage.DOCUMENT_INTAKE;
 
     @Enumerated(EnumType.STRING)
     private StageStatus workflowStatus = StageStatus.IN_PROGRESS;
+
+    // Explicit getters/setters for workflow fields (helps IDE recognition)
+    public ApplicationStage getWorkflowStage() {
+        return workflowStage;
+    }
+
+    public void setWorkflowStage(ApplicationStage workflowStage) {
+        this.workflowStage = workflowStage;
+    }
+
+    public StageStatus getWorkflowStatus() {
+        return workflowStatus;
+    }
+
+    public void setWorkflowStatus(StageStatus workflowStatus) {
+        this.workflowStatus = workflowStatus;
+    }
+
+    public String getRegistrationNumber() {
+        return registrationNumber;
+    }
+
+    public void setRegistrationNumber(String registrationNumber) {
+        this.registrationNumber = registrationNumber;
+    }
 }

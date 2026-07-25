@@ -1,0 +1,8 @@
+{
+    "venvPath": "/home/takilaa/rbz/rbz_ai",
+    "venv": "venv",
+    "pythonVersion": "3.12",
+    "typeCheckingMode": "off",
+    "reportMissingImports": false,
+    "reportMissingModuleSource": false
+}

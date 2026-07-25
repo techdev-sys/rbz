@@ -1,22 +1,71 @@
-import React, { useState, useEffect } from 'react';
-import { Container, Card, Table, Button, Badge, Alert, Spinner, Modal, Form, Row, Col } from 'react-bootstrap';
-import { getAssignedApplications } from '../services/api';
+import React, { useEffect, useMemo, useState } from 'react';
+import { Spinner } from 'react-bootstrap';
+import { getActivitySummary, getAssignedApplications } from '../services/api';
+import './DashboardExaminer.css';
+
+const timeAgo = (dateStr) => {
+    if (!dateStr) return 'No recorded activity';
+    const diffMs = Date.now() - new Date(dateStr).getTime();
+    if (diffMs < 0) return 'Just now';
+    const mins = Math.floor(diffMs / 60000);
+    if (mins < 1) return 'Just now';
+    if (mins < 60) return `${mins} minutes ago`;
+    const hours = Math.floor(mins / 60);
+    if (hours < 24) return `${hours} hours ago`;
+    const days = Math.floor(hours / 24);
+    if (days < 30) return `${days} days ago`;
+    return new Date(dateStr).toLocaleDateString('en-GB');
+};
+
+const formatWorkflowStage = (stage) => {
+    if (!stage) return 'Document intake';
+    return stage.toLowerCase().split('_')
+        .map((word) => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
+};
+
+const institutionLabel = (institutionType, licenseType) => {
+    if (institutionType === 'COMMERCIAL_BANK') return 'Commercial bank';
+    if (institutionType === 'DTMFI') return 'Deposit-taking MFI';
+    if (institutionType === 'MFI') return 'Microfinance institution';
+    return (licenseType || '').toLowerCase().includes('deposit')
+        ? 'Deposit-taking MFI' : 'Microfinance institution';
+};
+
+const statusDetails = (status) => {
+    switch (status) {
+        case 'ASSIGNED': return { className: 'assigned', label: 'Awaiting assessment' };
+        case 'UNDER_REVIEW': return { className: 'review', label: 'Under examination' };
+        case 'APPROVED': return { className: 'complete', label: 'Approved' };
+        case 'REJECTED': return { className: 'declined', label: 'Declined' };
+        default: return { className: 'pending', label: status || 'Pending' };
+    }
+};
 
 const DashboardExaminer = ({ onLogout, onReviewApp }) => {
     const [applications, setApplications] = useState([]);
+    const [activity, setActivity] = useState({});
     const [loading, setLoading] = useState(true);
-    const examinerName = localStorage.getItem('examinerUsername') || 'Examiner';
+    const [queueFilter, setQueueFilter] = useState('all');
+    const examinerName = localStorage.getItem('examinerUsername') || 'Bank Examiner';
     const examinerDesignation = localStorage.getItem('examinerDesignation') || 'Bank Examiner';
-
-    useEffect(() => {
-        loadAssignedTasks();
-    }, []);
 
     const loadAssignedTasks = async () => {
         setLoading(true);
         try {
             const response = await getAssignedApplications(examinerName);
-            setApplications(response.data || []);
+            const apps = response.data || [];
+            setApplications(apps);
+            if (apps.length > 0) {
+                try {
+                    const summaryRes = await getActivitySummary(apps.map((app) => app.id));
+                    setActivity(summaryRes.data || {});
+                } catch (err) {
+                    console.error('Activity summary unavailable', err);
+                    setActivity({});
+                }
+            } else {
+                setActivity({});
+            }
         } catch (err) {
             console.error(err);
         } finally {
@@ -24,160 +73,183 @@ const DashboardExaminer = ({ onLogout, onReviewApp }) => {
         }
     };
 
-    const getStatusStyle = (status) => {
-        switch (status) {
-            case 'ASSIGNED': return { color: '#003366', bg: '#e8edf2', label: 'Assigned' };
-            case 'UNDER_REVIEW': return { color: '#6b5900', bg: '#fef9e7', label: 'Under Review' };
-            case 'APPROVED': return { color: '#1a5c2e', bg: '#e8f5ec', label: 'Approved' };
-            case 'REJECTED': return { color: '#8b1a1a', bg: '#fde8e8', label: 'Rejected' };
-            default: return { color: '#555', bg: '#f0f0f0', label: status || 'Pending' };
-        }
+    useEffect(() => {
+        loadAssignedTasks();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
+
+    const hasNewMessage = (appId) => {
+        const summary = activity[appId];
+        if (!summary?.lastMessageAt || summary.lastMessageRole !== 'APPLICANT') return false;
+        const lastRead = localStorage.getItem(`chatLastRead_examiner_${appId}`);
+        return !lastRead || new Date(summary.lastMessageAt) > new Date(lastRead);
     };
 
-    return (
-        <div style={{ background: '#f5f6f8', minHeight: '100vh' }}>
-            {/* HEADER — clean, flat, institutional */}
-            <div style={{ background: '#003366', borderBottom: '3px solid #c5a236' }}>
-                <Container>
-                    <div className="d-flex justify-content-between align-items-center py-3">
-                        <div className="d-flex align-items-center gap-3">
-                            <img src="/rbz-logo.png" alt="RBZ" style={{ height: '44px', background: 'white', padding: '4px', borderRadius: '4px' }} />
-                            <div className="text-white">
-                                <div style={{ fontSize: '1.1rem', fontWeight: 600, letterSpacing: '0.3px' }}>Bank Examiner Dashboard</div>
-                                <div style={{ fontSize: '0.75rem', opacity: 0.6 }}>Microfinance Licensing — Reserve Bank of Zimbabwe</div>
-                            </div>
-                        </div>
-                        <div className="d-flex align-items-center gap-4">
-                            <div className="text-white text-end">
-                                <div style={{ fontSize: '0.85rem', fontWeight: 500 }}>{examinerName}</div>
-                                <div style={{ fontSize: '0.7rem', opacity: 0.5 }}>{examinerDesignation}</div>
-                            </div>
-                            <Button
-                                size="sm"
-                                variant="link"
-                                onClick={onLogout}
-                                style={{ color: 'rgba(255,255,255,0.7)', textDecoration: 'none', fontSize: '0.8rem' }}
-                            >
-                                Sign Out
-                            </Button>
-                        </div>
-                    </div>
-                </Container>
-            </div>
+    const metrics = useMemo(() => {
+        const pending = applications.filter((app) => app.applicationStatus === 'ASSIGNED').length;
+        const active = applications.filter((app) => app.applicationStatus === 'UNDER_REVIEW').length;
+        const documents = applications.reduce(
+            (total, app) => total + (activity[app.id]?.docsAwaitingReview || 0), 0
+        );
+        const messages = applications.filter((app) => hasNewMessage(app.id)).length;
+        return { pending, active, documents, messages };
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [applications, activity]);
 
-            <Container className="py-4" style={{ maxWidth: '1100px' }}>
-                {/* Summary strip */}
-                <div className="d-flex gap-4 mb-4">
-                    <div style={{ padding: '16px 24px', background: 'white', borderRadius: '6px', border: '1px solid #e0e4e8', flex: 1 }}>
-                        <div style={{ fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.5px', color: '#888', fontWeight: 600 }}>Assigned to You</div>
-                        <div style={{ fontSize: '1.5rem', fontWeight: 700, color: '#003366' }}>{applications.length}</div>
-                    </div>
-                    <div style={{ padding: '16px 24px', background: 'white', borderRadius: '6px', border: '1px solid #e0e4e8', flex: 1 }}>
-                        <div style={{ fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.5px', color: '#888', fontWeight: 600 }}>Pending Review</div>
-                        <div style={{ fontSize: '1.5rem', fontWeight: 700, color: '#003366' }}>
-                            {applications.filter(a => a.applicationStatus === 'ASSIGNED').length}
+    const filteredApplications = useMemo(() => {
+        if (queueFilter === 'pending') {
+            return applications.filter((app) => app.applicationStatus === 'ASSIGNED');
+        }
+        if (queueFilter === 'documents') {
+            return applications.filter((app) => (activity[app.id]?.docsAwaitingReview || 0) > 0);
+        }
+        if (queueFilter === 'messages') {
+            return applications.filter((app) => hasNewMessage(app.id));
+        }
+        return applications;
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [applications, activity, queueFilter]);
+
+    const summaryCards = [
+        { key: 'all', code: '01', label: 'Assigned cases', value: applications.length, note: `${metrics.active} currently under examination` },
+        { key: 'pending', code: '02', label: 'Pending assessment', value: metrics.pending, note: 'Cases requiring initial examiner action' },
+        { key: 'documents', code: '03', label: 'Evidence to review', value: metrics.documents, note: 'Applicant documents awaiting a finding' },
+        { key: 'messages', code: '04', label: 'Correspondence', value: metrics.messages, note: 'Unread applicant communications' }
+    ];
+
+    return (
+        <div className="be-workspace">
+            <header className="be-header">
+                <div className="be-header-inner">
+                    <div className="be-header-row">
+                        <div className="be-brand">
+                            <img src="/rbz-logo.png" alt="Reserve Bank of Zimbabwe" className="be-logo" />
+                            <div>
+                                <div className="be-brand-title">Bank Examiner</div>
+                                <div className="be-brand-subtitle">Banking Supervision, Surveillance &amp; Financial Stability</div>
+                            </div>
                         </div>
-                    </div>
-                    <div style={{ padding: '16px 24px', background: 'white', borderRadius: '6px', border: '1px solid #e0e4e8', flex: 1 }}>
-                        <div style={{ fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.5px', color: '#888', fontWeight: 600 }}>Completed</div>
-                        <div style={{ fontSize: '1.5rem', fontWeight: 700, color: '#003366' }}>
-                            {applications.filter(a => a.applicationStatus === 'APPROVED' || a.applicationStatus === 'REJECTED').length}
+                        <div className="be-user-actions">
+                            <div className="be-user-card">
+                                <div>{examinerName}</div>
+                                <small>{examinerDesignation}</small>
+                            </div>
+                            <button type="button" className="be-signout" onClick={onLogout}>Sign out</button>
                         </div>
                     </div>
                 </div>
+            </header>
 
-                {/* Main work queue */}
-                <Card style={{ border: '1px solid #e0e4e8', borderRadius: '6px', overflow: 'hidden' }}>
-                    <Card.Header style={{ background: 'white', borderBottom: '1px solid #e0e4e8', padding: '16px 20px' }}>
-                        <div className="d-flex justify-content-between align-items-center">
-                            <div>
-                                <div style={{ fontWeight: 600, fontSize: '0.95rem', color: '#1a1a1a' }}>Assigned Applications</div>
-                                <div style={{ fontSize: '0.75rem', color: '#888' }}>Applications delegated to you for evaluation</div>
-                            </div>
-                            <Button
-                                size="sm"
-                                variant="link"
-                                onClick={loadAssignedTasks}
-                                disabled={loading}
-                                style={{ color: '#003366', textDecoration: 'none', fontSize: '0.8rem' }}
-                            >
-                                {loading ? <Spinner animation="border" size="sm" /> : 'Refresh'}
-                            </Button>
+            <main className="be-main">
+                <section className="be-page-intro">
+                    <div>
+                        <span className="be-kicker">Institution licensing supervision</span>
+                        <h1>Examination workbench</h1>
+                        <p>Assess assigned applications, record evidence-based findings and prepare cases for senior review.</p>
+                    </div>
+                    <div className="be-asof">
+                        <span>Operational status</span>
+                        <strong>Active</strong>
+                        <small>{new Date().toLocaleDateString('en-GB', {
+                            weekday: 'long', day: '2-digit', month: 'long', year: 'numeric'
+                        })}</small>
+                    </div>
+                </section>
+
+                <section className="be-summary-grid" aria-label="Examiner workload summary">
+                    {summaryCards.map((card) => (
+                        <button key={card.key} type="button"
+                            className={`be-summary-card ${queueFilter === card.key ? 'active' : ''}`}
+                            onClick={() => setQueueFilter(card.key)}>
+                            <span className="be-summary-code">{card.code}</span>
+                            <span className="be-summary-label">{card.label}</span>
+                            <strong>{card.value}</strong>
+                            <small>{card.note}</small>
+                        </button>
+                    ))}
+                </section>
+
+                <section className="be-queue-panel">
+                    <div className="be-section-heading">
+                        <div>
+                            <span>Assigned examination register</span>
+                            <h2>{queueFilter === 'all' ? 'Full work queue' : summaryCards.find((card) => card.key === queueFilter)?.label}</h2>
                         </div>
-                    </Card.Header>
-                    <Card.Body className="p-0">
-                        {loading ? (
-                            <div className="text-center py-5">
-                                <Spinner animation="border" size="sm" style={{ color: '#003366' }} />
-                                <div className="mt-2" style={{ fontSize: '0.8rem', color: '#888' }}>Loading assignments...</div>
-                            </div>
-                        ) : applications.length === 0 ? (
-                            <div className="text-center py-5">
-                                <div style={{ fontSize: '0.9rem', color: '#888', fontWeight: 500 }}>No applications assigned</div>
-                                <div style={{ fontSize: '0.75rem', color: '#aaa' }}>Check back later or contact the Senior Examiner</div>
-                            </div>
-                        ) : (
-                            <Table hover responsive className="mb-0 align-middle" style={{ fontSize: '0.85rem' }}>
-                                <thead>
-                                    <tr style={{ background: '#fafbfc', borderBottom: '1px solid #e0e4e8' }}>
-                                        <th style={{ fontWeight: 600, color: '#666', fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.5px', padding: '10px 20px' }}>Institution</th>
-                                        <th style={{ fontWeight: 600, color: '#666', fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.5px', padding: '10px 16px' }}>License Type</th>
-                                        <th style={{ fontWeight: 600, color: '#666', fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.5px', padding: '10px 16px' }}>Stage</th>
-                                        <th style={{ fontWeight: 600, color: '#666', fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.5px', padding: '10px 16px' }}>Status</th>
-                                        <th style={{ fontWeight: 600, color: '#666', fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.5px', padding: '10px 16px', textAlign: 'right' }}>Action</th>
-                                    </tr>
-                                </thead>
+                        <div className="be-heading-actions">
+                            {queueFilter !== 'all' && <button type="button" onClick={() => setQueueFilter('all')}>Clear filter</button>}
+                            <button type="button" onClick={loadAssignedTasks} disabled={loading}>
+                                {loading ? 'Refreshing' : 'Refresh register'}
+                            </button>
+                        </div>
+                    </div>
+
+                    {loading ? (
+                        <div className="be-loading-state"><Spinner animation="border" size="sm" /><span>Retrieving assigned cases</span></div>
+                    ) : filteredApplications.length === 0 ? (
+                        <div className="be-empty-state">
+                            <strong>No cases match this register view</strong>
+                            <span>{applications.length === 0
+                                ? 'No applications are presently assigned. Contact the Senior Bank Examiner if work is expected.'
+                                : 'Select another workload category to review the remaining assigned cases.'}</span>
+                        </div>
+                    ) : (
+                        <div className="be-table-wrap">
+                            <table className="be-queue-table">
+                                <thead><tr>
+                                    <th>Reference / institution</th><th>Licence category</th><th>Current stage</th>
+                                    <th>Case status</th><th>Outstanding activity</th><th aria-label="Case action" />
+                                </tr></thead>
                                 <tbody>
-                                    {applications.map(app => {
-                                        const statusStyle = getStatusStyle(app.applicationStatus);
+                                    {filteredApplications.map((app) => {
+                                        const summary = activity[app.id];
+                                        const status = statusDetails(app.applicationStatus);
+                                        const documents = summary?.docsAwaitingReview || 0;
+                                        const newMessage = hasNewMessage(app.id);
                                         return (
-                                            <tr key={app.id} style={{ borderBottom: '1px solid #f0f0f0' }}>
-                                                <td style={{ padding: '14px 20px' }}>
-                                                    <div style={{ fontWeight: 600, color: '#1a1a1a' }}>{app.companyName}</div>
-                                                    <div style={{ fontSize: '0.72rem', color: '#999' }}>Ref: {app.id}</div>
+                                            <tr key={app.id}>
+                                                <td><span className="be-reference">RBZ-{String(app.id).padStart(6, '0')}</span><strong>{app.companyName || 'Institution name pending'}</strong></td>
+                                                <td><span className={`be-type-badge ${(app.institutionType || 'MFI').toLowerCase()}`}>{institutionLabel(app.institutionType, app.licenseType)}</span></td>
+                                                <td><span className="be-stage">{formatWorkflowStage(app.workflowStage)}</span></td>
+                                                <td><span className={`be-status ${status.className}`}>{status.label}</span></td>
+                                                <td>
+                                                    <div className="be-activity">
+                                                        {(documents > 0 || newMessage) ? <>
+                                                            {documents > 0 && <span className="be-activity-flag">{documents} document{documents === 1 ? '' : 's'} awaiting review</span>}
+                                                            {newMessage && <span className="be-activity-flag urgent">Applicant correspondence received</span>}
+                                                        </> : <span className="be-activity-clear">No outstanding alerts</span>}
+                                                        <small>{timeAgo(summary?.lastActivityAt)}</small>
+                                                    </div>
                                                 </td>
-                                                <td style={{ padding: '14px 16px', color: '#555' }}>{app.licenseType || '—'}</td>
-                                                <td style={{ padding: '14px 16px', color: '#555' }}>
-                                                    {app.workflowStage || 'Document Intake'}
-                                                </td>
-                                                <td style={{ padding: '14px 16px' }}>
-                                                    <span style={{
-                                                        display: 'inline-block',
-                                                        padding: '3px 10px',
-                                                        borderRadius: '3px',
-                                                        fontSize: '0.72rem',
-                                                        fontWeight: 600,
-                                                        color: statusStyle.color,
-                                                        background: statusStyle.bg
-                                                    }}>
-                                                        {statusStyle.label}
-                                                    </span>
-                                                </td>
-                                                <td style={{ padding: '14px 16px', textAlign: 'right' }}>
-                                                    <Button
-                                                        size="sm"
-                                                        onClick={() => onReviewApp(app)}
-                                                        style={{
-                                                            background: '#003366',
-                                                            border: 'none',
-                                                            fontSize: '0.78rem',
-                                                            fontWeight: 500,
-                                                            padding: '5px 16px',
-                                                            borderRadius: '4px'
-                                                        }}
-                                                    >
-                                                        Review
-                                                    </Button>
-                                                </td>
+                                                <td><button type="button" className="be-open-case" onClick={() => onReviewApp(app)}>Open dossier</button></td>
                                             </tr>
                                         );
                                     })}
                                 </tbody>
-                            </Table>
-                        )}
-                    </Card.Body>
-                </Card>
-            </Container>
+                            </table>
+                        </div>
+                    )}
+                </section>
+
+                <section className="be-lower-grid">
+                    <article className="be-guidance-panel">
+                        <div className="be-section-heading compact"><div><span>Examination priorities</span><h2>Current workload signals</h2></div></div>
+                        <div className="be-signal-list">
+                            <button type="button" onClick={() => setQueueFilter('documents')}><span>Evidence requiring a recorded finding</span><strong>{metrics.documents}</strong></button>
+                            <button type="button" onClick={() => setQueueFilter('messages')}><span>Applicant correspondence requiring review</span><strong>{metrics.messages}</strong></button>
+                            <button type="button" onClick={() => setQueueFilter('pending')}><span>Cases awaiting initial assessment</span><strong>{metrics.pending}</strong></button>
+                        </div>
+                    </article>
+
+                    <article className="be-guidance-panel">
+                        <div className="be-section-heading compact"><div><span>Control standard</span><h2>Required review discipline</h2></div></div>
+                        <ol className="be-standard-list">
+                            <li><span>01</span><p><strong>Verify submitted particulars</strong>Review the institutional record and supporting evidence as a read-only dossier.</p></li>
+                            <li><span>02</span><p><strong>Record findings by stage</strong>Document the basis for every approval, query or rejection decision.</p></li>
+                            <li><span>03</span><p><strong>Escalate a complete record</strong>Forward the examiner report only when all material issues have been resolved.</p></li>
+                        </ol>
+                    </article>
+                </section>
+            </main>
         </div>
     );
 };

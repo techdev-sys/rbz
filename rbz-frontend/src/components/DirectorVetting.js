@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Button, Card, Col, Container, Form, Row, Spinner, Alert, Badge, Modal } from 'react-bootstrap';
-import { uploadCV, verifyDocument } from '../services/api';
-import WorkflowStatusPanel from './WorkflowStatusPanel';
+import { uploadCV, verifyDocument, friendlyError } from '../services/api';
+import DirectorQuestionnaire from './DirectorQuestionnaire';
 
 const DirectorVetting = ({ onComplete }) => {
   const [directors, setDirectors] = useState([]);
@@ -15,6 +15,8 @@ const DirectorVetting = ({ onComplete }) => {
   const [cvLoadingMap, setCvLoadingMap] = useState({});
   const [deleteModal, setDeleteModal] = useState({ show: false, director: null });
   const [expandedDirectorId, setExpandedDirectorId] = useState(null);
+  const [dqModal, setDqModal] = useState({ show: false, director: null });
+  const [dqCompleted, setDqCompleted] = useState({});
 
   const toggleExpand = (id) => {
     setExpandedDirectorId(expandedDirectorId === id ? null : id);
@@ -141,14 +143,12 @@ const DirectorVetting = ({ onComplete }) => {
       console.error(err);
 
       // Provide user-friendly error messages
-      let errorMessage = "Server Error";
+      let errorMessage;
 
       if (err.code === 'ERR_NETWORK' || err.message === 'Network Error') {
-        errorMessage = "Network timeout - file may be too large. Try compressing the PDF or use a smaller file.";
-      } else if (err.response) {
-        errorMessage = `Server error (${err.response.status}): ${err.response.data || 'Unknown error'}`;
-      } else if (err.message) {
-        errorMessage = err.message;
+        errorMessage = "The upload could not reach the server — the file may be too large. Try compressing the PDF or use a smaller file.";
+      } else {
+        errorMessage = friendlyError(err, 'The document could not be verified. Please try again.');
       }
 
       setDirectors(prev => prev.map(d =>
@@ -179,11 +179,11 @@ const DirectorVetting = ({ onComplete }) => {
   };
 
   return (
-    <Container className="mt-4">
+    <Container fluid className="px-4 pt-4 pb-4">
       {/* Header with Instructions */}
       <Card className="rbz-card shadow-lg animate-fade-in mb-4">
-        <Card.Header>
-          <h4 className="mb-0">👥 Stage 2: Directors & Governance Vetting</h4>
+        <Card.Header className="bg-primary text-white">
+          <h5 className="mb-0 text-white">Stage 3: Directors & Governance Vetting</h5>
         </Card.Header>
         <Card.Body>
           <Alert variant="info" className="mb-0">
@@ -193,6 +193,7 @@ const DirectorVetting = ({ onComplete }) => {
                 <strong>What you need to do:</strong>
                 <ul className="mb-0 mt-2">
                   <li>Add each director's full name and ID/Passport number</li>
+                  <li>Click <strong>"DQ Form"</strong> on each director to complete the Fit & Proper Questionnaire (required)</li>
                   <li>Upload their CV/Resume for character assessment</li>
                   <li>Upload supporting documents (Affidavit, Net Worth, Police Clearance, Tax Clearance, <strong>Certified ID/Passport Copy</strong>)</li>
                   <li>All documents will be automatically verified by our secure verification system</li>
@@ -299,11 +300,22 @@ const DirectorVetting = ({ onComplete }) => {
                     ID/Passport: {director.idPassport} | Nationality: {director.nationality}
                   </small>
                 </div>
-                <div onClick={(e) => e.stopPropagation()}>
+                <div onClick={(e) => e.stopPropagation()} className="d-flex gap-2 align-items-center">
+                  <Button
+                    size="sm"
+                    onClick={() => setDqModal({ show: true, director })}
+                    style={{
+                      background: dqCompleted[director.id] ? '#1a5c2e' : '#003366',
+                      border: 'none', fontSize: '0.75rem', fontWeight: 600, padding: '4px 12px'
+                    }}
+                    title="Open Fit & Proper Questionnaire"
+                  >
+                    {dqCompleted[director.id] ? '✅ DQ Done' : '📋 DQ Form'}
+                  </Button>
                   <Button
                     variant="outline-secondary"
                     size="sm"
-                    className="me-2 border-0"
+                    className="border-0"
                     onClick={() => toggleExpand(director.id)}
                   >
                     {isExpanded ? 'Collapse' : 'Expand'}
@@ -472,14 +484,27 @@ const DirectorVetting = ({ onComplete }) => {
         })
       )}
 
-      {/* Workflow Rule Engine Integration */}
-      <div className="mt-4 mb-4">
-        <WorkflowStatusPanel
-          companyId={companyId}
-          currentStep={3}
-          onStageComplete={() => onComplete && onComplete()}
-        />
+      <div className="d-flex justify-content-between mt-4 mb-4">
+        <Button variant="secondary" onClick={() => window.history.back()}>
+          ← Previous Stage
+        </Button>
+        <Button variant="primary" onClick={onComplete}>
+          Proceed to Stage 4 →
+        </Button>
       </div>
+
+      {/* Fit & Proper Questionnaire Modal */}
+      <DirectorQuestionnaire
+        show={dqModal.show}
+        onHide={(saved) => {
+          if (saved && dqModal.director) {
+            setDqCompleted(prev => ({ ...prev, [dqModal.director.id]: true }));
+          }
+          setDqModal({ show: false, director: null });
+        }}
+        director={dqModal.director}
+        companyId={companyId}
+      />
 
       {/* Delete Confirmation Modal */}
       <Modal

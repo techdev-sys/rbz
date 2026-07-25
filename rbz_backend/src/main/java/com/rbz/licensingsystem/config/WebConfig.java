@@ -1,20 +1,25 @@
 package com.rbz.licensingsystem.config;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.lang.NonNull;
 import org.springframework.web.servlet.config.annotation.CorsRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
-import org.springframework.lang.NonNull;
 
 @Configuration
 public class WebConfig implements WebMvcConfigurer {
 
+    @Value("${cors.allowed-origins}")
+    private String allowedOriginsConfig;
+
     @Override
+    @SuppressWarnings("null")
     public void addCorsMappings(@NonNull CorsRegistry registry) {
+        String[] origins = allowedOriginsConfig.split(",");
         registry.addMapping("/**")
-                .allowedOrigins("http://localhost:3000", "http://localhost:3001", "http://localhost:3002",
-                        "http://localhost:5173") // Added common React/Vite ports
+                .allowedOrigins(origins)
                 .allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH")
-                .allowedHeaders("*")
+                .allowedHeaders("Authorization", "Content-Type", "Accept", "X-Requested-With")
                 .allowCredentials(true);
     }
 }

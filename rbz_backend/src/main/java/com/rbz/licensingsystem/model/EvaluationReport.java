@@ -46,20 +46,38 @@ public class EvaluationReport {
     private String recommendedByDesignation;
     private LocalDateTime recommendedDate;
 
-    // Final Approval
+    // Final Approval (Level 3 — Registrar; all institution types)
     private String finalApprovalStatus; // APPROVED / NOT_APPROVED / PENDING
-    private String approvedBy; // Registrar name
+    private String approvedBy;
+    private String approvedByDesignation;
     private LocalDateTime approvalDate;
 
     @Column(columnDefinition = "TEXT")
     private String approvalComments;
 
-    // Generated Report Document
-    @Lob
+    // Level 4 — Director sign-off (DTMFI + Commercial Bank)
+    private String directorSignedBy;
+    private String directorSignedByDesignation;
+    private LocalDateTime directorSignedDate;
     @Column(columnDefinition = "TEXT")
-    private String generatedReportHTML; // Full HTML report
+    private String directorComments;
 
-    private String reportPDFPath; // Path to generated PDF
+    // Level 5 — Governor / Deputy Governor sign-off (Commercial Bank only)
+    private String governorSignedBy;
+    private String governorSignedByDesignation;
+    private LocalDateTime governorSignedDate;
+    @Column(columnDefinition = "TEXT")
+    private String governorComments;
 
-    private String workflowStatus = "DRAFT"; // DRAFT, SUBMITTED, UNDER_REVIEW, APPROVED, REJECTED
+    // Institution-aware approval chain metadata
+    private Integer approvalLevelsRequired; // 3=MFI, 4=DTMFI, 5=Bank — set on report generation
+    private Integer currentApprovalLevel;   // 0=DRAFT,1=SUBMITTED,2=REVIEWED,3=RECOMMENDED,4=DIRECTOR,5=GOVERNOR
+
+    // Generated Report Document
+    @Column(columnDefinition = "TEXT")
+    private String generatedReportHTML;
+
+    private String reportPDFPath;
+
+    private String workflowStatus = "DRAFT"; // DRAFT, SUBMITTED, UNDER_REVIEW, PENDING_APPROVAL, PENDING_DIRECTOR, PENDING_GOVERNOR, APPROVED, REJECTED
 }

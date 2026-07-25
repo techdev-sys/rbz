@@ -3,29 +3,27 @@
    Version: 2.0 (Production Ready)
    ============================================ */
 
-/* Import Google Fonts */
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Playfair+Display:wght@700;800&display=swap');
 
 :root {
     /* ========== PRIMARY COLORS (Extracted from RBZ) ========== */
-    --rbz-gold-light: #D4A356;
-    --rbz-gold: #C89F56;
-    --rbz-gold-dark: #B8860B;
-    --rbz-gold-darker: #8B6914;
+    --rbz-gold-light: #B8966E;
+    --rbz-gold: #9A7B3F;
+    --rbz-gold-dark: #7A6230;
+    --rbz-gold-darker: #5C4A24;
 
-    --rbz-navy-light: #3D4175;
-    --rbz-navy: #2B2E5F;
-    --rbz-navy-dark: #1A1A4D;
-    --rbz-navy-darker: #0F0F2E;
+    --rbz-navy-light: #1a5276;
+    --rbz-navy: #003366;
+    --rbz-navy-dark: #002244;
+    --rbz-navy-darker: #001433;
 
     /* ========== SECONDARY COLORS ========== */
-    --rbz-purple-light: #F0EFF7;
-    --rbz-purple-lighter: #F8F7FC;
-    --rbz-lavender: #E8E6F2;
-    --rbz-lavender-dark: #D0CEE6;
+    --rbz-purple-light: #F0F2F5;
+    --rbz-purple-lighter: #F5F6F8;
+    --rbz-lavender: #E8ECF0;
+    --rbz-lavender-dark: #D0D5DD;
 
     --rbz-white: #FFFFFF;
-    --rbz-offwhite: #FAFAFA;
+    --rbz-offwhite: #F5F6F8;
     --rbz-gray-50: #F9FAFB;
     --rbz-gray-100: #F3F4F6;
     --rbz-gray-200: #E5E7EB;
@@ -38,20 +36,20 @@
     --rbz-gray-900: #111827;
 
     /* ========== ACCENT COLORS ========== */
-    --rbz-success: #10B981;
-    --rbz-success-light: #D1FAE5;
-    --rbz-warning: #F59E0B;
+    --rbz-success: #2E7D32;
+    --rbz-success-light: #E8F5E9;
+    --rbz-warning: #B45309;
     --rbz-warning-light: #FEF3C7;
-    --rbz-error: #EF4444;
+    --rbz-error: #C62828;
     --rbz-error-light: #FEE2E2;
-    --rbz-info: #3B82F6;
+    --rbz-info: #1565C0;
     --rbz-info-light: #DBEAFE;
 
     /* ========== GRADIENTS ========== */
-    --rbz-gradient-gold: linear-gradient(135deg, var(--rbz-gold-light) 0%, var(--rbz-gold-dark) 100%);
+    --rbz-gradient-gold: linear-gradient(135deg, #B8966E 0%, #7A6230 100%);
     --rbz-gradient-navy: linear-gradient(135deg, var(--rbz-navy) 0%, var(--rbz-navy-darker) 100%);
-    --rbz-gradient-purple: linear-gradient(135deg, var(--rbz-purple-light) 0%, var(--rbz-lavender) 100%);
-    --rbz-gradient-hero: linear-gradient(135deg, #1A1A4D 0%, #2B2E5F 50%, #3D4175 100%);
+    --rbz-gradient-purple: linear-gradient(135deg, #F0F2F5 0%, #E8ECF0 100%);
+    --rbz-gradient-hero: linear-gradient(135deg, #001433 0%, #003366 50%, #1a5276 100%);
 
     /* ========== SHADOWS ========== */
     --rbz-shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
@@ -60,8 +58,18 @@
     --rbz-shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
     --rbz-shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
     --rbz-shadow-2xl: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
-    --rbz-shadow-gold: 0 10px 25px -5px rgba(200, 159, 86, 0.3);
-    --rbz-shadow-navy: 0 10px 25px -5px rgba(26, 26, 77, 0.4);
+    --rbz-shadow-gold: 0 4px 12px -2px rgba(154, 123, 63, 0.12);
+    --rbz-shadow-navy: 0 4px 12px -2px rgba(0, 51, 102, 0.18);
+
+    /* ========== LAYOUT SPACING ========== */
+    --rbz-section-padding: 2rem;
+    --rbz-card-padding: 1.5rem;
+    --rbz-field-gap: 1.25rem;
+
+    /* ========== TYPOGRAPHY ========== */
+    --rbz-font-size-base: 15px;
+    --rbz-line-height-body: 1.7;
+    --rbz-letter-spacing-heading: -0.3px;
 
     /* ========== SPACING ========== */
     --rbz-spacing-xs: 0.25rem;
@@ -89,21 +97,49 @@
 }
 
 /* ========== GLOBAL STYLES ========== */
+html {
+    font-size: 15px;
+}
+
 body {
     margin: 0;
     font-family: var(--rbz-font-sans);
+    font-size: 1rem;
+    line-height: 1.7;
+    color: #1A1A2E;
+    background-color: #F5F6F8;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
-    background-color: var(--rbz-offwhite);
-    color: var(--rbz-gray-800);
 }
+
+h1, h2, h3, h4, h5, h6 {
+    letter-spacing: var(--rbz-letter-spacing-heading);
+    color: #1A1A2E;
+}
+
+/* ========== BOOTSTRAP PRIMARY COLOR OVERRIDE → RBZ NAVY ========== */
+:root {
+    --bs-primary: #003366;
+    --bs-primary-rgb: 0, 51, 102;
+    --bs-btn-bg: #003366;
+    --bs-btn-border-color: #003366;
+    --bs-btn-hover-bg: #002244;
+    --bs-btn-hover-border-color: #002244;
+    --bs-btn-active-bg: #001433;
+    --bs-link-color: #003366;
+    --bs-link-hover-color: #002244;
+}
+
+.bg-primary { background-color: #003366 !important; }
+.text-primary { color: #003366 !important; }
+.border-primary { border-color: #003366 !important; }
 
 /* ========== REACT BOOTSTRAP OVERRIDES ========== */
 
-/* Navbar - RBZ Gold Theme */
+/* Navbar - RBZ Navy Theme */
 .navbar.rbz-navbar {
-    background: var(--rbz-gradient-gold) !important;
-    box-shadow: var(--rbz-shadow-gold);
+    background: var(--rbz-navy) !important;
+    box-shadow: var(--rbz-shadow-navy);
     padding: var(--rbz-spacing-md) var(--rbz-spacing-xl);
 }
 
@@ -115,7 +151,7 @@ body {
 }
 
 .navbar.rbz-navbar .navbar-brand:hover {
-    transform: scale(1.02);
+    opacity: 0.9;
 }
 
 .navbar.rbz-navbar .nav-link {
@@ -137,23 +173,49 @@ body {
     font-weight: 600;
 }
 
-/* Cards - RBZ Enhanced */
+/* ========== STAGE CARD HEADER — UNIFORM ACROSS ALL STAGES ========== */
+.card-header.bg-primary {
+    background-color: #003366 !important;
+    padding: 14px 20px !important;
+    border-bottom: 2px solid rgba(255,255,255,0.15) !important;
+    border-radius: 0 !important;
+}
+
+.card-header.bg-primary h5,
+.card-header.bg-primary .mb-0 {
+    font-size: 0.95rem !important;
+    font-weight: 700 !important;
+    letter-spacing: 0.3px !important;
+    line-height: 1.4 !important;
+    margin-bottom: 0 !important;
+    color: white !important;
+}
+
+.card-header.bg-primary small {
+    font-size: 0.78rem !important;
+    opacity: 0.75 !important;
+    font-weight: 400 !important;
+    display: block !important;
+    margin-top: 3px !important;
+}
+
+/* ========== CARDS - RBZ Enhanced ========== */
 .card.rbz-card {
-    border: none;
+    border: 1px solid var(--rbz-gray-200);
     border-radius: var(--rbz-radius-xl);
     box-shadow: var(--rbz-shadow-md);
     transition: all var(--rbz-transition-base);
     overflow: hidden;
+    border-left: 3px solid #D0D5DD;
 }
 
 .card.rbz-card:hover {
-    transform: translateY(-2px);
     box-shadow: var(--rbz-shadow-lg);
 }
 
 .card.rbz-card .card-header {
     background: var(--rbz-white);
-    border-bottom: 1px solid var(--rbz-gray-200);
+    border-bottom: 1px solid #D0D5DD;
     font-weight: 600;
     color: var(--rbz-navy-dark);
     padding: var(--rbz-spacing-lg) var(--rbz-spacing-xl);
@@ -169,67 +231,97 @@ body {
     border-radius: var(--rbz-radius-lg);
     background-color: var(--rbz-lavender);
     box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.1);
+    border: 1px solid var(--rbz-gold-light);
 }
 
 .progress-bar {
-    background: var(--rbz-gradient-gold);
+    background: var(--rbz-navy);
     font-weight: 600;
     box-shadow: var(--rbz-shadow-sm);
     transition: width var(--rbz-transition-slow);
 }
 
-/* Buttons - RBZ Styled */
-.btn-primary {
-    background: var(--rbz-gradient-gold);
-    border: none;
-    color: var(--rbz-white);
-    font-weight: 600;
-    padding: var(--rbz-spacing-sm) var(--rbz-spacing-xl);
+/* Alert - Per-variant border */
+.alert {
+    border: 1px solid var(--rbz-gray-300);
     border-radius: var(--rbz-radius-lg);
-    box-shadow: var(--rbz-shadow-gold);
+}
+
+/* Forms - RBZ Navy Focus */
+.form-control:focus,
+.form-select:focus {
+    border-color: #003366;
+    box-shadow: 0 0 0 3px rgba(0, 51, 102, 0.10);
+}
+
+.form-control,
+.form-select {
+    border: 1px solid var(--rbz-gray-300);
+    border-radius: var(--rbz-radius-md);
     transition: all var(--rbz-transition-base);
 }
 
-.btn-primary:hover {
-    transform: translateY(-2px);
-    box-shadow: var(--rbz-shadow-xl);
-    background: linear-gradient(135deg, var(--rbz-gold) 0%, var(--rbz-gold-darker) 100%);
+.form-control:hover,
+.form-select:hover {
+    border-color: var(--rbz-gray-400);
 }
 
-.btn-primary:active {
-    transform: translateY(0);
+/* Modal - RBZ Navy Header */
+.modal-header {
+    border-bottom: 1px solid #D0D5DD;
+    background: var(--rbz-white);
+}
+
+/* Badge - Gold Accent */
+.badge.bg-gold {
+    background-color: var(--rbz-gold) !important;
+    color: var(--rbz-white);
+}
+
+/* Buttons - RBZ Styled */
+.btn-primary {
+    background-color: var(--rbz-navy) !important;
+    border-color: var(--rbz-navy) !important;
+    color: var(--rbz-white) !important;
+    font-weight: 600;
+    border-radius: var(--rbz-radius-lg);
+    transition: all var(--rbz-transition-base);
+}
+
+.btn-primary:hover, .btn-primary:focus, .btn-primary:active {
+    background-color: var(--rbz-navy-dark) !important;
+    border-color: var(--rbz-navy-dark) !important;
+    transform: translateY(-1px);
+    box-shadow: var(--rbz-shadow-md);
 }
 
 .btn-secondary {
-    background: var(--rbz-gradient-navy);
+    background: var(--rbz-navy-dark);
     border: none;
     color: var(--rbz-white);
     font-weight: 600;
-    padding: var(--rbz-spacing-sm) var(--rbz-spacing-xl);
     border-radius: var(--rbz-radius-lg);
-    box-shadow: var(--rbz-shadow-navy);
+    box-shadow: var(--rbz-shadow-sm);
     transition: all var(--rbz-transition-base);
 }
 
 .btn-secondary:hover {
-    transform: translateY(-2px);
-    box-shadow: var(--rbz-shadow-xl);
-    background: linear-gradient(135deg, var(--rbz-navy-light) 0%, var(--rbz-navy-dark) 100%);
+    transform: translateY(-1px);
+    box-shadow: var(--rbz-shadow-md);
+    background: var(--rbz-navy);
 }
 
 .btn-outline-primary {
-    border: 2px solid var(--rbz-gold);
-    color: var(--rbz-gold-dark);
+    border: 2px solid var(--rbz-navy) !important;
+    color: var(--rbz-navy) !important;
     font-weight: 600;
-    padding: var(--rbz-spacing-sm) var(--rbz-spacing-xl);
     border-radius: var(--rbz-radius-lg);
     transition: all var(--rbz-transition-base);
 }
 
 .btn-outline-primary:hover {
-    background: var(--rbz-gradient-gold);
-    color: var(--rbz-white);
-    border-color: transparent;
+    background-color: var(--rbz-navy) !important;
+    color: var(--rbz-white) !important;
 }
 
 .btn-success {
@@ -255,8 +347,8 @@ body {
 
 .form-control:focus,
 .form-select:focus {
-    border-color: var(--rbz-gold);
-    box-shadow: 0 0 0 3px rgba(200, 159, 86, 0.1);
+    border-color: #003366;
+    box-shadow: 0 0 0 3px rgba(0, 51, 102, 0.10);
     outline: none;
 }
 
@@ -336,11 +428,11 @@ body {
 }
 
 .badge.bg-primary {
-    background: var(--rbz-gradient-gold) !important;
+    background: var(--rbz-gold) !important;
 }
 
 .badge.bg-secondary {
-    background: var(--rbz-gradient-navy) !important;
+    background: var(--rbz-navy) !important;
 }
 
 /* Animations */
@@ -397,10 +489,9 @@ body {
     background-color: var(--rbz-purple-light) !important;
 }
 
-/* Container Enhancements */
-.container {
-    margin-top: var(--rbz-spacing-xl);
-    margin-bottom: var(--rbz-spacing-xl);
+/* Container Enhancements — no forced top margin; stages control their own spacing */
+.container-fluid {
+    margin-top: 0;
 }
 
 /* Responsive */
