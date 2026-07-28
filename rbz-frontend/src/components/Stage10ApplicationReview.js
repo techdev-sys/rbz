@@ -40,7 +40,7 @@ const STAGE_ICONS = {
     DOCUMENT_INTAKE: '📁',
 };
 
-const Stage10ApplicationReview = ({ onGoToStage, onSubmit }) => {
+const Stage10ApplicationReview = ({ stepNumber, onGoToStage, onSubmit }) => {
     const [logs, setLogs] = useState([]);
     const [loading, setLoading] = useState(true);
     const [evaluating, setEvaluating] = useState(false);
@@ -134,7 +134,7 @@ const Stage10ApplicationReview = ({ onGoToStage, onSubmit }) => {
 
             {/* Header */}
             <div className="mb-4">
-                <h3 className="fw-bold" style={{ color: '#003366' }}>Stage 10: Application Review</h3>
+                <h3 className="fw-bold" style={{ color: '#003366' }}>Stage {stepNumber || ''}: Application Review</h3>
                 <p className="text-muted mb-0">Review all validation checks before submitting. Click any failed item to go directly to that stage and fix it.</p>
             </div>
 

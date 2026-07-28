@@ -55,8 +55,11 @@ public class SecurityConfiguration {
                         .requestMatchers("/api/report/by-status/**").hasRole("SENIOR_BE")
                         .requestMatchers("/api/company/*/assign").hasRole("SENIOR_BE")
                         .requestMatchers("/api/company/*/generate-license-code").hasRole("SENIOR_BE")
-                        // Examiner + Senior BE: workflow evaluation, report generation/submission
-                        .requestMatchers("/api/workflow/**").hasAnyRole("EXAMINER", "SENIOR_BE")
+                        // Workflow evaluation: applicants may run/read their own company's checks
+                        // (Stage 10 pre-submission review); staff may access any company.
+                        // Per-company ownership is enforced in WorkflowController via CompanyAccessService.
+                        .requestMatchers("/api/workflow/**").authenticated()
+                        // Examiner + Senior BE: report generation/submission
                         .requestMatchers("/api/report/generate/**").hasAnyRole("EXAMINER", "SENIOR_BE")
                         .requestMatchers("/api/report/submit/**").hasAnyRole("EXAMINER", "SENIOR_BE")
                         .requestMatchers(HttpMethod.GET, "/api/report/**").hasAnyRole("EXAMINER", "SENIOR_BE")

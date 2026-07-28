@@ -61,7 +61,7 @@ const AIChatbot = ({ companyId, currentStage, stageName, institutionName, userNa
             'Ownership Structure': "**Tip:** List ALL shareholders who own 10% or more. Corporate shareholders must also disclose their underlying beneficial owners.",
             'Directors & Governance': "**Tip:** Each director needs 5 key documents: Certified ID, CV (chronological format), Police Clearance, Tax Clearance, and Net Worth Affidavit.",
             'Application Form': "**Tip:** The contact person named here will receive all correspondence about this application — use someone who can respond promptly.",
-            'Capital Structure': "**Tip:** Issued shares × par value should equal your issued share capital. Minimum capital: USD 5,000 (Credit-Only) or USD 25,000 (Deposit-Taking).",
+            'Capital Structure': "**Tip:** Issued shares × par value should equal your issued share capital. Minimum capital: USD 25,000 equivalent (Credit-Only) or USD 5,000,000 equivalent (Deposit-Taking).",
             'Products & Services': "**Tip:** Describe all loan products clearly. Interest rates and all charges must be clearly disclosed.",
             'Financial Projections': "**Tip:** Provide at least 3 years of projections and state your key assumptions.",
             'Growth & Development': "**Tip:** Set out your growth strategy, branch or rollout plans, and supporting market analysis.",
@@ -154,6 +154,7 @@ const AIChatbot = ({ companyId, currentStage, stageName, institutionName, userNa
                 id: Date.now() + 1,
                 role: 'assistant',
                 content: response.data.reply,
+                citations: response.data.citations || [],
                 timestamp: new Date(),
             };
 
@@ -306,6 +307,23 @@ const AIChatbot = ({ companyId, currentStage, stageName, institutionName, userNa
                                     className="ai-bubble-content"
                                     dangerouslySetInnerHTML={{ __html: formatMessage(msg.content) }}
                                 />
+                                {msg.citations?.length > 0 && (
+                                    <div className="ai-citation-list">
+                                        <span className="ai-citation-label">Official sources</span>
+                                        {msg.citations.map((citation) => (
+                                            <a
+                                                className="ai-citation-card"
+                                                href={citation.documentUrl}
+                                                key={citation.documentId + '-' + citation.page}
+                                                rel="noreferrer"
+                                                target="_blank"
+                                            >
+                                                <strong>{citation.title} · {citation.section ? `Section ${citation.section} · ` : ''}p. {citation.page}</strong>
+                                                <span>“{citation.quote}”</span>
+                                            </a>
+                                        ))}
+                                    </div>
+                                )}
                                 <div className="ai-bubble-time">
                                     {msg.timestamp ? new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}
                                 </div>

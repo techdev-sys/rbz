@@ -1,6 +1,7 @@
 package com.rbz.licensingsystem.service;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.client.RestTemplate;
@@ -34,7 +35,8 @@ public class DocumentExtractionService {
     @Autowired private FileSecurityHelper fileSecurity;
     @Autowired private CompanyAccessService companyAccess;
 
-    private final String AI_SERVICE_URL = "http://localhost:8000";
+    @Value("${ai.service.url:http://localhost:8000}")
+    private String AI_SERVICE_URL;
     private final RestTemplate restTemplate = new RestTemplate();
     private final ObjectMapper objectMapper = new ObjectMapper();
 

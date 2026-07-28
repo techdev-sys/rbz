@@ -46,7 +46,12 @@ const CapitalStructure = ({ onComplete }) => {
         try {
             const response = await getCapitalStructure(companyId);
             if (response.data) {
-                setFormData(response.data);
+                setFormData(prev => ({
+                    ...prev,
+                    ...Object.fromEntries(
+                        Object.entries(response.data).map(([k, v]) => [k, v ?? prev[k] ?? ''])
+                    )
+                }));
             }
         } catch (err) {
             // No existing data, that's okay

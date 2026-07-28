@@ -104,8 +104,8 @@ public class InstitutionReportGenerationService {
         public BigDecimal minimumCapital(InstitutionType type) {
                 return switch (type) {
                         case COMMERCIAL_BANK -> new BigDecimal("30000000");
-                        case DTMFI -> new BigDecimal("25000");
-                        default -> new BigDecimal("5000");
+                        case DTMFI -> new BigDecimal("5000000");
+                        default -> new BigDecimal("25000");
                 };
         }
 

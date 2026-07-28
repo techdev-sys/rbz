@@ -13,7 +13,8 @@ const CLOSED_POLL_MS = 20000;   // light unread check while the bubble is closed
  * Shows an unread-count badge on the closed bubble. "Last read" is tracked
  * per user+application in localStorage.
  */
-const ApplicationChat = ({ companyId, currentUserRole, userName, bottomOffset = 20 }) => {
+const ApplicationChat = ({ companyId, currentUserRole, userName, bottomOffset = 20, side = 'right' }) => {
+    const sideStyle = side === 'left' ? { left: '20px' } : { right: '20px' };
     const [isOpen, setIsOpen] = useState(false);
     const [messages, setMessages] = useState([]);
     const [newMessage, setNewMessage] = useState('');
@@ -126,7 +127,7 @@ const ApplicationChat = ({ companyId, currentUserRole, userName, bottomOffset = 
 
     if (!isOpen) {
         return (
-            <div style={{ position: 'fixed', bottom: `${bottomOffset}px`, right: '20px', zIndex: 9999 }}>
+            <div style={{ position: 'fixed', bottom: `${bottomOffset}px`, ...sideStyle, zIndex: 9999 }}>
                 <Button
                     variant="primary"
                     className="rounded-circle shadow-lg d-flex align-items-center justify-content-center"
@@ -159,7 +160,7 @@ const ApplicationChat = ({ companyId, currentUserRole, userName, bottomOffset = 
         <Card
             className="shadow-lg border-0"
             style={{
-                position: 'fixed', bottom: `${bottomOffset}px`, right: '20px', width: '350px', height: '500px', zIndex: 9999,
+                position: 'fixed', bottom: `${bottomOffset}px`, ...sideStyle, width: '350px', height: '500px', zIndex: 9999,
                 display: 'flex', flexDirection: 'column'
             }}
         >

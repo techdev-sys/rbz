@@ -44,7 +44,12 @@ const ComplianceDocumentation = ({ onComplete, readOnly = false }) => {
         try {
             const response = await getCompliance(companyId);
             if (response.data) {
-                setFormData(response.data);
+                setFormData(prev => ({
+                    ...prev,
+                    ...Object.fromEntries(
+                        Object.entries(response.data).map(([k, v]) => [k, v ?? prev[k] ?? ''])
+                    )
+                }));
             }
         } catch (err) {
         }
@@ -83,7 +88,7 @@ const ComplianceDocumentation = ({ onComplete, readOnly = false }) => {
         <Container className="mt-4">
             <Card className="shadow-sm">
                 <Card.Header as="h4" className="bg-primary text-white">
-                    Stage 8: Compliance & Documentation
+                    Stage 9: Compliance Declaration
                 </Card.Header>
                 <Card.Body>
                     {error && <Alert variant="danger">{error}</Alert>}

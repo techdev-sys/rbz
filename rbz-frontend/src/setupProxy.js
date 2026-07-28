@@ -18,7 +18,7 @@ module.exports = function (app) {
   );
   app.use(
     createProxyMiddleware({
-      pathFilter: '/chat',
+      pathFilter: ['/chat', '/reference-documents'],
       target: 'http://localhost:8000',
       changeOrigin: true,
       proxyTimeout: 60000,

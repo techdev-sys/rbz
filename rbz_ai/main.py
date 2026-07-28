@@ -1,7 +1,8 @@
-from fastapi import FastAPI, UploadFile, File, Form
+from fastapi import FastAPI, HTTPException, UploadFile, File, Form
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
 from pydantic import BaseModel
-from typing import List, Optional
+from typing import Dict, List, Optional
 import google.generativeai as genai  # legacy - used for document analysis
 try:
     from google import genai as new_genai  # new SDK for chat
@@ -9,10 +10,12 @@ try:
     NEW_SDK_AVAILABLE = True
 except ImportError:
     NEW_SDK_AVAILABLE = False
+import anthropic
 import os
 import json
 from datetime import datetime
 import time
+import asyncio
 from google.api_core.exceptions import ResourceExhausted
 import pypdf
 import io
@@ -20,10 +23,320 @@ from dotenv import load_dotenv
 import pytesseract
 from PIL import Image
 import sys
+import re
+from collections import Counter
+from pathlib import Path
 
 load_dotenv()
 
 app = FastAPI(title="RBZ AI Service", version="2.0")
+
+REFERENCE_DOCUMENT_ROOT = Path(__file__).resolve().parent / "Reference Documents"
+REGULATORY_DOCUMENTS = [
+    {"id": "rbz-act", "title": "Reserve Bank of Zimbabwe Act", "category": "Acts and policy", "path": "01_Acts_and_Policy/rbz-act.pdf", "stages": ["Company Profile", "Application Review"]},
+    {"id": "banking-act", "title": "Banking Act [Chapter 24:20]", "category": "Acts and policy", "path": "01_Acts_and_Policy/ZIMBABWE_Banking_Act_2023_updated.pdf", "stages": ["Company Profile", "Application Form", "Capital Adequacy (Basel III)", "Liquidity Management", "IT & Cyber Risk", "Recovery & Resolution", "Application Review"]},
+    {"id": "bank-use-act", "title": "Bank Use Promotion and Suppression of Money Laundering Act", "category": "Acts and policy", "path": "01_Acts_and_Policy/bankuse_promotion.pdf", "stages": ["Compliance Declaration", "Documents Upload", "Application Review"]},
+    {"id": "monetary-policy-statement", "title": "Monetary Policy Statement", "category": "Acts and policy", "path": "01_Acts_and_Policy/MPS_FINAL_-_FULL.pdf", "stages": ["Capital Structure", "Financial Projections", "Capital Adequacy (Basel III)"]},
+    {"id": "banking-licensing-2025", "title": "Minimum Licensing Requirements for Banking Institutions (June 2025)", "category": "Licensing requirements", "path": "02_Licensing_Requirements/BANKING_INSTITUTIONS_-_MINIMUM_LICENSING_REQUIREMENTS_2025.pdf", "stages": ["Company Profile", "Application Form", "Capital Structure", "Directors & Governance", "Financial Projections", "Documents Upload"]},
+    {"id": "credit-only-licensing-2025", "title": "Minimum Licensing Requirements for Credit-Only MFIs (June 2025)", "category": "Licensing requirements", "path": "02_Licensing_Requirements/Credit_only_Microfinance_Institutions_-_Minimum_Licensing_Requirements_2025.pdf", "stages": ["Company Profile", "Ownership Structure", "Directors & Governance", "Application Form", "Capital Structure", "Products & Services", "Financial Projections", "Growth & Development", "Compliance Declaration", "Documents Upload", "Application Review"]},
+    {"id": "dtmfi-licensing-2025", "title": "Minimum Licensing Requirements for Deposit-Taking MFIs (June 2025)", "category": "Licensing requirements", "path": "02_Licensing_Requirements/Deposit-taking_Microfinance_Institutions_-_Minimum_Licensing_Requirements_2025.pdf", "stages": ["Company Profile", "Ownership Structure", "Directors & Governance", "Application Form", "Capital Structure", "Products & Services", "Financial Projections", "Growth & Development", "Compliance Declaration", "Documents Upload", "Deposit Protection (DIPF)", "Application Review"]},
+    {"id": "aml-cft-cpf-2025", "title": "AML/CFT/CPF Guideline (June 2025)", "category": "Prudential standards", "path": "03_Prudential_Standards/AML_CFT_CPF_GUIDELINE_-_June_2025.pdf", "stages": ["Ownership Structure", "Directors & Governance", "Compliance Declaration", "Documents Upload", "Application Review"]},
+    {"id": "fitness-probity", "title": "Prudential Standard No. 07-2014/BSD: Fitness and Probity Assessment Criteria", "category": "Prudential standards", "path": "03_Prudential_Standards/fitnesss_probity_prudential_standards2.pdf", "stages": ["Ownership Structure", "Directors & Governance", "Documents Upload"]},
+    {"id": "director-evaluation", "title": "Board and Director Evaluation Framework for Financial Institutions", "category": "Prudential standards", "path": "03_Prudential_Standards/board---director-evaluation-framework---revised.pdf", "stages": ["Directors & Governance", "Application Review"]},
+    {"id": "risk-management-2024", "title": "Prudential Standard No. 01-2024/BSD: Risk Management", "category": "Prudential standards", "path": "03_Prudential_Standards/Risk_Mgt_Prudential_Standard_No._1-2024_Final.pdf", "stages": ["Products & Services", "Financial Projections", "Growth & Development", "Compliance Declaration", "IT & Cyber Risk"]},
+    {"id": "model-risk-2023", "title": "Prudential Standard No. 02-2023/BSD: Model Risk Management", "category": "Prudential standards", "path": "03_Prudential_Standards/Model_Risk_Management_Prudential_Standard_Final_June_2023.pdf", "stages": ["Financial Projections", "IT & Cyber Risk"]},
+    {"id": "lcr-2022", "title": "Prudential Standard No. 02-2022/BSD: Liquidity Coverage Ratio", "category": "Prudential standards", "path": "03_Prudential_Standards/Prudential_Standard_No02-2022_BSD_LCR.pdf", "stages": ["Liquidity Management", "Deposit Protection (DIPF)"]},
+    {"id": "dsib-2020", "title": "Prudential Standard No. 01-2020/BSD: Domestic Systemically Important Banking Institutions", "category": "Prudential standards", "path": "03_Prudential_Standards/Prudential-Standard-No.-01-2020-BSD.pdf", "stages": ["Capital Adequacy (Basel III)", "Recovery & Resolution"]},
+    {"id": "dtmfi-operational-guidelines", "title": "Prudential Standard No. 02-2016/BSD: Deposit-Taking Microfinance Institutions", "category": "Prudential standards", "path": "03_Prudential_Standards/operational-guidelines-for-deposit-taking-microfinance-institutions.pdf", "stages": ["Products & Services", "Deposit Protection (DIPF)", "Documents Upload"]},
+    {"id": "fitness-probity-affidavit", "title": "Appendix A: Affidavit of Fitness and Probity", "category": "Application templates", "path": "04_Application_Templates/APPENDIX_A_-_AFFIDAVIT_OF_FITNESS_AND_PROBITY.pdf", "stages": ["Directors & Governance", "Documents Upload"]},
+    {"id": "corporate-shareholder-affidavit", "title": "Appendix B: Corporate Shareholder AML and Source of Wealth Affidavit", "category": "Application templates", "path": "04_Application_Templates/Appendix_B_-_Corporate_Shareholders_Affidavit_on_AML_Requirements__Source_of_Wealth.pdf", "stages": ["Ownership Structure", "Documents Upload"]},
+    {"id": "individual-shareholder-affidavit", "title": "Appendix C: Individual Shareholder AML and Source of Wealth Affidavit", "category": "Application templates", "path": "04_Application_Templates/Appendix_C_-_Individual_Shareholders_Affidavit_on_AML_Requirements__Source_of_Wealth.pdf", "stages": ["Ownership Structure", "Documents Upload"]},
+    {"id": "mfi-forex-lending", "title": "Microfinance Institutions Lending in Foreign Currency Guideline", "category": "Lending guidelines", "path": "05_Lending_Guidelines/Forex_Lending_Guidelines_to_Microfinance_Institutions_2022.pdf", "stages": ["Products & Services", "Compliance Declaration"]},
+]
+REGULATORY_DOCUMENTS_BY_ID = {document["id"]: document for document in REGULATORY_DOCUMENTS}
+TOKEN_PATTERN = re.compile(r"[a-z0-9]{3,}")
+# These prudential standards / licensing documents number their paragraphs
+# "4.2", "1.11" etc. at the start of a line — detected here so citations can
+# say "Section 4.2" rather than just a page number.
+CLAUSE_PATTERN = re.compile(r"(?m)^\s*(\d{1,2}\.\d{1,3}(?:\.\d{1,3})?)\b")
+MAX_CHUNK_CHARS = 1300
+
+class RegulatoryCitation(BaseModel):
+    documentId: str
+    title: str
+    page: int
+    section: Optional[str] = None
+    quote: str
+    documentUrl: str
+
+
+AZURE_OCR_CACHE_SUFFIX = ".ocr.json"
+
+
+def _ocr_cache_path(document_path: Path) -> Path:
+    return document_path.with_suffix(AZURE_OCR_CACHE_SUFFIX)
+
+
+OCR_CHUNK_PAGES = 10  # pages per Azure call; keeps each upload well under the ~4MB free-tier cap
+
+
+def _ocr_pages_with_azure(document_path: Path, page_numbers: List[int]) -> Dict[int, str]:
+    """Run Azure Document Intelligence on specific 1-indexed pages of a PDF,
+    returning {page_number: text}. Only called for pages pypdf couldn't
+    extract text from (image-only scans) — most pages in these reference
+    PDFs have native text, so OCR is scoped to exactly the pages that need
+    it rather than the whole document.
+
+    The source PDFs here are scan-to-PDF exports whose /Resources dictionary
+    is inherited from a shared ancestor node, so every page (even a lone
+    single-page extract via pypdf.PdfWriter) drags in every embedded image
+    in the document and blows past Azure's free-tier upload size limit. To
+    avoid that, each target page is rendered to a flat JPEG with PyMuPDF and
+    a fresh, minimal multi-page PDF is built purely from those images — small
+    enough to batch several pages per Azure call instead of one call per page.
+    """
+    if not page_numbers:
+        return {}
+    endpoint = os.getenv("AZURE_FORM_RECOGNIZER_ENDPOINT", "https://rbzai.cognitiveservices.azure.com/")
+    key = os.getenv("AZURE_FORM_RECOGNIZER_KEY", "")
+    if not key:
+        return {}
+    try:
+        import fitz  # PyMuPDF
+        from azure.ai.formrecognizer import DocumentAnalysisClient
+        from azure.core.credentials import AzureKeyCredential
+
+        client = DocumentAnalysisClient(endpoint, AzureKeyCredential(key))
+        src = fitz.open(str(document_path))
+        pages: Dict[int, str] = {}
+        targets = sorted(page_numbers)
+
+        for chunk_start in range(0, len(targets), OCR_CHUNK_PAGES):
+            chunk_targets = targets[chunk_start:chunk_start + OCR_CHUNK_PAGES]
+            chunk_doc = fitz.open()
+            for page_number in chunk_targets:
+                pix = src[page_number - 1].get_pixmap(dpi=150)
+                img_bytes = pix.tobytes("jpeg", jpg_quality=75)
+                img_rect = fitz.open("jpg", img_bytes)[0].rect
+                chunk_page = chunk_doc.new_page(width=img_rect.width, height=img_rect.height)
+                chunk_page.insert_image(img_rect, stream=img_bytes)
+            chunk_bytes = chunk_doc.tobytes(deflate=True)
+            chunk_doc.close()
+
+            poller = client.begin_analyze_document("prebuilt-layout", document=io.BytesIO(chunk_bytes))
+            result = poller.result()
+            for result_page in result.pages:
+                # result_page.page_number is 1-indexed within this chunk;
+                # map it back to the original document's page number.
+                original_page = chunk_targets[result_page.page_number - 1]
+                pages[original_page] = "\n".join(line.content for line in result_page.lines)
+            print(f"--- INFO: OCR'd pages {chunk_targets} of {document_path.name} ---")
+
+        src.close()
+        return pages
+    except Exception as error:
+        print(f"--- WARNING: Azure OCR failed for {document_path.name}: {error} ---")
+        return {}
+
+
+def _get_ocr_text_for_pages(document_path: Path, page_numbers: List[int]) -> Dict[int, str]:
+    """Cached OCR lookup, scoped to only the pages actually missing text.
+    Reads whatever's already cached on disk, OCRs just the pages still
+    missing, and persists the merged result so repeated server starts (and
+    other scanned pages found later in the same document) never re-OCR a
+    page that's already been recovered."""
+    cache_path = _ocr_cache_path(document_path)
+    cached: Dict[int, str] = {}
+    if cache_path.is_file():
+        try:
+            with open(cache_path, "r", encoding="utf-8") as f:
+                cached = {int(k): v for k, v in json.load(f).items()}
+        except Exception as error:
+            print(f"--- WARNING: could not read OCR cache {cache_path.name}: {error} ---")
+
+    missing = [p for p in page_numbers if p not in cached]
+    if missing:
+        print(f"--- INFO: {document_path.name} pages {missing} have no extractable text — running Azure OCR (one-time, cached) ---")
+        newly_ocred = _ocr_pages_with_azure(document_path, missing)
+        if newly_ocred:
+            cached.update(newly_ocred)
+            try:
+                with open(cache_path, "w", encoding="utf-8") as f:
+                    json.dump({str(k): v for k, v in cached.items()}, f, ensure_ascii=False)
+            except Exception as error:
+                print(f"--- WARNING: could not write OCR cache {cache_path.name}: {error} ---")
+
+    return cached
+
+
+class RegulatoryKnowledgeBase:
+    def __init__(self):
+        self._loaded = False
+        self._chunks: List[Dict[str, object]] = []
+
+    @staticmethod
+    def _split_page(raw_text: str) -> List[str]:
+        """Split a page's raw (newline-preserving) text into citation-sized
+        excerpts, breaking on clause boundaries where present so a chunk never
+        straddles two unrelated numbered paragraphs."""
+        if len(raw_text) <= MAX_CHUNK_CHARS:
+            return [raw_text]
+        matches = list(CLAUSE_PATTERN.finditer(raw_text))
+        if len(matches) < 2:
+            return [raw_text[i:i + MAX_CHUNK_CHARS] for i in range(0, len(raw_text), MAX_CHUNK_CHARS)]
+        parts = []
+        for i, m in enumerate(matches):
+            start = m.start()
+            end = matches[i + 1].start() if i + 1 < len(matches) else len(raw_text)
+            parts.append(raw_text[start:end])
+        merged, buf = [], ""
+        for p in parts:
+            if len(buf) + len(p) <= MAX_CHUNK_CHARS:
+                buf += p
+            else:
+                if buf:
+                    merged.append(buf)
+                buf = p
+        if buf:
+            merged.append(buf)
+        return merged
+
+    def _load(self) -> None:
+        if self._loaded:
+            return
+        for document in REGULATORY_DOCUMENTS:
+            document_path = REFERENCE_DOCUMENT_ROOT / document["path"]
+            if not document_path.is_file():
+                continue
+            try:
+                reader = pypdf.PdfReader(str(document_path))
+            except Exception as error:
+                print(f"Reference document unavailable: {document['id']}: {error}")
+                continue
+            raw_pages: Dict[int, str] = {}
+            empty_page_numbers = []
+            for page_number, page in enumerate(reader.pages, start=1):
+                try:
+                    raw = page.extract_text() or ""
+                except Exception:
+                    raw = ""
+                raw_pages[page_number] = raw
+                if not raw.strip():
+                    empty_page_numbers.append(page_number)
+
+            if empty_page_numbers:
+                ocr_pages = _get_ocr_text_for_pages(document_path, empty_page_numbers)
+                for page_number in empty_page_numbers:
+                    raw_pages[page_number] = ocr_pages.get(page_number, "")
+
+            for page_number, raw in raw_pages.items():
+                # Collapse horizontal whitespace only — keep line breaks so
+                # CLAUSE_PATTERN can find numbered paragraphs at line starts.
+                raw = re.sub(r"[ \t]+", " ", raw)
+                raw = re.sub(r"\n{2,}", "\n", raw).strip()
+                if len(raw) < 40:
+                    continue
+                for excerpt in self._split_page(raw):
+                    clause_match = CLAUSE_PATTERN.search(excerpt)
+                    excerpt = re.sub(r"\s+", " ", excerpt).strip()
+                    if not excerpt:
+                        continue
+                    self._chunks.append({
+                        "document": document,
+                        "page": page_number,
+                        "section": clause_match.group(1) if clause_match else None,
+                        "text": excerpt,
+                    })
+        self._loaded = True
+
+    @staticmethod
+    def _tokens(value: str) -> List[str]:
+        return TOKEN_PATTERN.findall(value.lower())
+
+    def retrieve(self, question: str, stage_name: Optional[str], limit: int = 3) -> List[Dict[str, object]]:
+        self._load()
+        query_counts = Counter(self._tokens(question))
+        if not query_counts:
+            return []
+        matches = []
+        for chunk in self._chunks:
+            document = chunk["document"]
+            text = str(chunk["text"])
+            token_counts = Counter(self._tokens(text))
+            overlap = sum(min(count, token_counts[token]) for token, count in query_counts.items())
+            title_tokens = set(self._tokens(str(document["title"])))
+            title_overlap = sum(count for token, count in query_counts.items() if token in title_tokens)
+            stage_bonus = 2 if stage_name and stage_name in document["stages"] else 0
+            score = overlap + (title_overlap * 2) + stage_bonus
+            if score:
+                matches.append((score, chunk))
+        matches.sort(key=lambda item: item[0], reverse=True)
+        selected = []
+        selected_documents = set()
+        for _, chunk in matches:
+            document = chunk["document"]
+            if document["id"] in selected_documents:
+                continue
+            selected.append(chunk)
+            selected_documents.add(document["id"])
+            if len(selected) == limit:
+                break
+        return selected
+
+    def citation(self, chunk: Dict[str, object], question: str) -> RegulatoryCitation:
+        document = chunk["document"]
+        question_tokens = set(self._tokens(question))
+        sentences = re.split(r"(?<=[.!?])\s+", str(chunk["text"]))
+        quote = max(sentences, key=lambda sentence: len(question_tokens.intersection(self._tokens(sentence))), default=str(chunk["text"]))
+        quote = re.sub(r"\s+", " ", quote).strip()[:360]
+        return RegulatoryCitation(
+            documentId=str(document["id"]),
+            title=str(document["title"]),
+            page=int(chunk["page"]),
+            section=chunk.get("section"),
+            quote=quote,
+            documentUrl=f"/reference-documents/{document['id']}/file",
+        )
+
+
+REGULATORY_KNOWLEDGE = RegulatoryKnowledgeBase()
+
+
+def document_payload(document: Dict[str, object]) -> Dict[str, object]:
+    return {
+        "id": document["id"],
+        "title": document["title"],
+        "category": document["category"],
+        "stages": document["stages"],
+        "documentUrl": f"/reference-documents/{document['id']}/file",
+    }
+
+
+@app.get("/reference-documents")
+def list_reference_documents(stage_name: Optional[str] = None):
+    documents = [
+        document_payload(document)
+        for document in REGULATORY_DOCUMENTS
+        if not stage_name or stage_name in document["stages"]
+    ]
+    return {"documents": documents}
+
+
+@app.get("/reference-documents/{document_id}/file")
+def get_reference_document(document_id: str):
+    document = REGULATORY_DOCUMENTS_BY_ID.get(document_id)
+    if not document:
+        raise HTTPException(status_code=404, detail="Reference document not found.")
+    document_path = REFERENCE_DOCUMENT_ROOT / document["path"]
+    if not document_path.is_file():
+        raise HTTPException(status_code=404, detail="Reference document file is unavailable.")
+    return FileResponse(
+        document_path,
+        media_type="application/pdf",
+        filename=document_path.name,
+        headers={"Content-Disposition": "inline"},
+    )
+
 
 @app.get("/")
 def read_root():
@@ -52,6 +365,18 @@ if NEW_SDK_AVAILABLE and _GEMINI_API_KEY and _GEMINI_API_KEY != "your_gemini_api
 else:
     _new_genai_client = None
     print("⚠️  WARNING: GEMINI_API_KEY not set or invalid. Chat will use fallback responses.")
+
+# Configure Anthropic Claude client (redundancy — used when Gemini fails or is slow)
+_ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY", "")
+if _ANTHROPIC_API_KEY:
+    _anthropic_client = anthropic.Anthropic(api_key=_ANTHROPIC_API_KEY)
+else:
+    _anthropic_client = None
+    print("⚠️  WARNING: ANTHROPIC_API_KEY not set. Claude fallback disabled.")
+
+CLAUDE_MODEL = "claude-sonnet-5"
+# Per-provider timeout before falling through to the next AI provider.
+AI_PROVIDER_TIMEOUT_SECONDS = 12
 
 # Configure Local Tesseract OCR (Windows path - Linux will ignore if not found)
 try:
@@ -118,7 +443,7 @@ Stage 4 - Application Form:
 Stage 5 - Capital Structure:
   - Authorized shares, issued shares, par value
   - Source of capital documentation and proof of capital injection
-  - Minimum capital requirements: USD 5,000 (Credit-Only), USD 25,000 (Deposit-Taking)
+  - Minimum capital requirements: local-currency equivalent of USD 25,000 (Credit-Only), USD 5,000,000 or local-currency equivalent (Deposit-Taking)
 
 Stage 6 - Products & Services:
   - Loan products offered (Personal, Business, Agricultural, SME, etc.)
@@ -155,7 +480,7 @@ Final stage - Application Review:
 
 === KEY REGULATIONS & REQUIREMENTS ===
 - Governed by: Microfinance Act [Chapter 24:29]; banks under the Banking Act [Chapter 24:20]
-- Minimum Capital: USD 5,000 (Credit-Only), USD 25,000 (Deposit-Taking)
+- Minimum Capital: local-currency equivalent of USD 25,000 (Credit-Only), USD 5,000,000 or local-currency equivalent (Deposit-Taking)
 - Non-executive directors must be the MAJORITY of the board
 - All executive directors must reside in Zimbabwe
 - No director may serve on more than one board committee
@@ -268,6 +593,37 @@ class ChatRequest(BaseModel):
 class ChatResponse(BaseModel):
     reply: str
     suggestions: Optional[List[str]] = []
+    citations: List[RegulatoryCitation] = []
+
+def _gemini_chat_call(history: List[ChatMessage], final_message: str, system_prompt: str) -> str:
+    history_contents = []
+    for msg in history:
+        role = "user" if msg.role == "user" else "model"
+        history_contents.append(genai_types.Content(role=role, parts=[genai_types.Part(text=msg.content)]))
+    history_contents.append(genai_types.Content(role="user", parts=[genai_types.Part(text=final_message)]))
+    response = _new_genai_client.models.generate_content(
+        model="gemini-flash-latest",
+        contents=history_contents,
+        config=genai_types.GenerateContentConfig(
+            system_instruction=system_prompt,
+            temperature=0.7,
+            max_output_tokens=1024,
+        )
+    )
+    return response.text
+
+
+def _claude_chat_call(history: List[ChatMessage], final_message: str, system_prompt: str) -> str:
+    messages = [{"role": "user" if m.role == "user" else "assistant", "content": m.content} for m in history]
+    messages.append({"role": "user", "content": final_message})
+    response = _anthropic_client.messages.create(
+        model=CLAUDE_MODEL,
+        max_tokens=1024,
+        system=system_prompt,
+        messages=messages,
+    )
+    return next((block.text for block in response.content if block.type == "text"), "")
+
 
 @app.post("/chat", response_model=ChatResponse)
 async def chat_with_ai(request: ChatRequest):
@@ -287,39 +643,64 @@ async def chat_with_ai(request: ChatRequest):
         if context_note:
             final_message = f"{context_note}\n\nApplicant says: {request.message}"
 
+        source_matches = REGULATORY_KNOWLEDGE.retrieve(request.message, request.currentStageName)
+        citations = [REGULATORY_KNOWLEDGE.citation(match, request.message) for match in source_matches]
+
+        def _source_header(index: int, match: Dict[str, object]) -> str:
+            header = f"[Source {index}] {match['document']['title']} — page {match['page']}"
+            if match.get("section"):
+                header += f", Section {match['section']}"
+            return header
+
+        source_context = "\n\n".join(
+            f"{_source_header(index, match)}\n{match['text']}"
+            for index, match in enumerate(source_matches, start=1)
+        )
+        source_instruction = (
+            "\n\n=== AUTHORITATIVE REFERENCE EXCERPTS ===\n"
+            + (source_context or "No relevant excerpt was retrieved from the curated source library.")
+            + "\n\nUse the excerpts above as the source of truth for legal or regulatory statements. "
+            "Do not invent requirements or cite a document that is not in the excerpts. "
+            "Be citation-first: when an excerpt supports a factual claim, name the document, its section/clause "
+            "number (if one is given in the source header), and the page, then give a short supporting quote "
+            "(no more than ~25 words) — e.g. [Source 1] Prudential Standard No. 01-2024/BSD, Section 1.11, p.5: "
+            "\"...applies to all regulated banking and non-bank financial institutions...\". "
+            "If the excerpts do not resolve the question, explain that the requirement cannot be confirmed from "
+            "the available source material and direct the applicant to the assigned examiner — never fabricate "
+            "a section number, page, or document that isn't in the excerpts above."
+        )
+
         reply_text = None
+        system_prompt = RBZ_SYSTEM_PROMPT + source_instruction
 
-        # --- Try new google-genai SDK ---
+        # --- Try Gemini and Claude in order; a timeout or error on one
+        # falls through to the next provider, so a slow/unavailable
+        # provider never blocks the response. ---
+        providers = []
         if _new_genai_client:
-            try:
-                history_contents = []
-                for msg in (request.history or []):
-                    role = "user" if msg.role == "user" else "model"
-                    history_contents.append(
-                        genai_types.Content(role=role, parts=[genai_types.Part(text=msg.content)])
-                    )
-                history_contents.append(
-                    genai_types.Content(role="user", parts=[genai_types.Part(text=final_message)])
-                )
-                response = _new_genai_client.models.generate_content(
-                    model="gemini-2.5-flash",
-                    contents=history_contents,
-                    config=genai_types.GenerateContentConfig(
-                        system_instruction=RBZ_SYSTEM_PROMPT,
-                        temperature=0.7,
-                        max_output_tokens=1024,
-                    )
-                )
-                reply_text = response.text
-            except Exception as sdk_err:
-                print(f"New SDK error: {sdk_err}")
+            providers.append(("gemini", _gemini_chat_call))
+        if _anthropic_client:
+            providers.append(("claude", _claude_chat_call))
 
-        # --- Fallback to old SDK ---
+        for provider_name, provider_call in providers:
+            try:
+                reply_text = await asyncio.wait_for(
+                    asyncio.to_thread(provider_call, request.history or [], final_message, system_prompt),
+                    timeout=AI_PROVIDER_TIMEOUT_SECONDS,
+                )
+                if reply_text:
+                    break
+            except asyncio.TimeoutError:
+                print(f"{provider_name} timed out after {AI_PROVIDER_TIMEOUT_SECONDS}s, trying next provider")
+            except Exception as provider_err:
+                print(f"{provider_name} error: {provider_err}")
+
+        # --- Fallback to old Gemini SDK ---
         if not reply_text:
             try:
                 model = genai.GenerativeModel(
-                    model_name="gemini-2.5-flash",
-                    system_instruction=RBZ_SYSTEM_PROMPT
+                    model_name="gemini-flash-latest",
+                    system_instruction=RBZ_SYSTEM_PROMPT + source_instruction
                 )
                 chat_history = [{"role": m.role, "parts": [m.content]} for m in (request.history or [])]
                 chat = model.start_chat(history=chat_history)
@@ -331,17 +712,18 @@ async def chat_with_ai(request: ChatRequest):
 
         # --- Static fallback ---
         if not reply_text:
-            reply_text = get_fallback_response(request.message)
+            reply_text = get_source_backed_fallback(citations) if citations else get_fallback_response(request.message)
 
         suggestions = generate_suggestions(request.currentStageName, request.message)
-        return ChatResponse(reply=reply_text, suggestions=suggestions)
+        return ChatResponse(reply=reply_text, suggestions=suggestions, citations=citations)
 
     except Exception as e:
         print(f"Chat error: {e}")
         fallback = get_fallback_response(request.message)
         return ChatResponse(
             reply=fallback,
-            suggestions=["What documents do I need?", "How long does the process take?", "Contact support"]
+            suggestions=["What documents do I need?", "How long does the process take?", "Contact support"],
+            citations=[]
         )
 
 def generate_suggestions(current_stage_name: Optional[str], user_message: str) -> List[str]:
@@ -385,6 +767,19 @@ def generate_content_with_retry(chat_or_model, prompt_or_parts, max_retries=3):
             time.sleep(wait_time)
     return None
 
+def get_source_backed_fallback(citations: List[RegulatoryCitation]) -> str:
+    primary = citations[0]
+    locator = f"{primary.title}"
+    if primary.section:
+        locator += f", Section {primary.section}"
+    locator += f", p.{primary.page}"
+    return (
+        f"The following official source ({locator}) is relevant to your question:\n\n"
+        f"\"{primary.quote}\" [Source 1]\n\n"
+        "Please review the cited document below. If you need a case-specific interpretation, contact your assigned examiner."
+    )
+
+
 def get_fallback_response(message: str) -> str:
     """Returns a helpful static response when AI is unavailable"""
     message_lower = message.lower()
@@ -396,7 +791,7 @@ def get_fallback_response(message: str) -> str:
         return "The RBZ licensing process has 9 stages: (1) Company Profile, (2) Ownership Structure, (3) Director Vetting, (4) Board Committees, (5) Products & Services, (6) Business Plan, (7) Financial Projections, (8) Capital Structure, and (9) Document Upload Hub. You must complete each stage in order."
 
     if any(w in message_lower for w in ["capital", "minimum", "money", "fund"]):
-        return "Minimum capital requirements: Credit-Only MFI = USD 5,000. Deposit-Taking MFI = USD 25,000. You will need to provide proof of capital injection through bank statements and a source of funds declaration."
+        return "Minimum capital requirements: Credit-Only MFI = local-currency equivalent of USD 25,000. Deposit-Taking MFI = USD 5,000,000 or local-currency equivalent. You will need to provide proof of capital injection through bank statements and a source of funds declaration."
 
     if any(w in message_lower for w in ["director", "board", "dq"]):
         return "Each Director must complete a Directors Questionnaire (DQ Form). Required supporting documents include: Certified ID/Passport, a CV following the standard chronological template, Police Clearance Certificate, Tax Clearance Certificate, and an Affidavit of Net Worth. Executive directors must reside in Zimbabwe, and non-executive directors must form the majority of the board."
@@ -686,7 +1081,7 @@ def gemini_structured_extract(text: str, doc_type: str, entity_name: str):
     prompt = prompt_template.format(text=safe_text, entity=entity_name or "the applicant")
 
     try:
-        model = genai.GenerativeModel("gemini-2.5-flash")
+        model = genai.GenerativeModel("gemini-flash-latest")
         response = model.generate_content(
             prompt,
             generation_config=genai.types.GenerationConfig(
@@ -713,6 +1108,60 @@ def gemini_structured_extract(text: str, doc_type: str, entity_name: str):
     except Exception as e:
         print(f"--- WARNING: Gemini structured extraction failed for {doc_type}: {e} ---")
         return None
+
+
+def claude_structured_extract(text: str, doc_type: str, entity_name: str):
+    """Same contract as gemini_structured_extract, used as a fallback when
+    Gemini fails or times out."""
+    if not _anthropic_client:
+        return None
+    prompt_template = EXTRACTION_PROMPTS.get(doc_type)
+    if not prompt_template:
+        return None
+    if not text or len(text.strip()) < 50:
+        return None
+
+    safe_text = text[:60000]
+    prompt = prompt_template.format(text=safe_text, entity=entity_name or "the applicant")
+
+    try:
+        response = _anthropic_client.messages.create(
+            model=CLAUDE_MODEL,
+            max_tokens=2048,
+            messages=[{"role": "user", "content": prompt + "\n\nRespond with JSON only, no markdown fences."}],
+        )
+        raw = next((b.text for b in response.content if b.type == "text"), "").strip()
+        if not raw:
+            return None
+        if raw.startswith("```"):
+            raw = raw.strip("`")
+            if raw.lower().startswith("json"):
+                raw = raw[4:].strip()
+        try:
+            return json.loads(raw)
+        except json.JSONDecodeError:
+            return None
+    except Exception as e:
+        print(f"--- WARNING: Claude structured extraction failed for {doc_type}: {e} ---")
+        return None
+
+
+async def structured_extract_with_fallback(text: str, doc_type: str, entity_name: str):
+    """Try Gemini then Claude, in order, each bounded by AI_PROVIDER_TIMEOUT_SECONDS
+    so a slow provider falls through to the next rather than blocking the request."""
+    for provider_name, extract_fn in (("gemini", gemini_structured_extract), ("claude", claude_structured_extract)):
+        try:
+            result = await asyncio.wait_for(
+                asyncio.to_thread(extract_fn, text, doc_type, entity_name),
+                timeout=AI_PROVIDER_TIMEOUT_SECONDS,
+            )
+            if result is not None:
+                return result
+        except asyncio.TimeoutError:
+            print(f"{provider_name} structured extraction timed out after {AI_PROVIDER_TIMEOUT_SECONDS}s")
+        except Exception as e:
+            print(f"{provider_name} structured extraction error: {e}")
+    return None
 
 
 @app.post("/verify-document")
@@ -823,7 +1272,7 @@ async def verify_document(
             "tax_clearance", "policy_verification", "insurance_policy",
         }
         if doc_type in STRUCTURED_DOC_TYPES:
-            extracted = gemini_structured_extract(text, doc_type, director_name)
+            extracted = await structured_extract_with_fallback(text, doc_type, director_name)
             if extracted is None:
                 return {
                     "valid": False,

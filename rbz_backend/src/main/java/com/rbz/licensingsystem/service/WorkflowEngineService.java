@@ -279,9 +279,9 @@ public class WorkflowEngineService {
                 BigDecimal minimumCapital;
                 String licenseLabel;
                 switch (itype) {
-                        case COMMERCIAL_BANK -> { minimumCapital = new BigDecimal("30000000.00"); licenseLabel = "Commercial Bank (RBZ 2024)"; }
-                        case DTMFI          -> { minimumCapital = new BigDecimal("25000.00");    licenseLabel = "Deposit-Taking MFI"; }
-                        default             -> { minimumCapital = new BigDecimal("5000.00");     licenseLabel = "Credit-Only MFI"; }
+                        case COMMERCIAL_BANK -> { minimumCapital = new BigDecimal("30000000.00"); licenseLabel = "Tier I Commercial Bank"; }
+                        case DTMFI          -> { minimumCapital = new BigDecimal("5000000.00");  licenseLabel = "Deposit-Taking MFI"; }
+                        default             -> { minimumCapital = new BigDecimal("25000.00");    licenseLabel = "Credit-Only MFI"; }
                 }
 
                 boolean hasMinimumCapital = paidUpExtracted.compareTo(minimumCapital) >= 0;
@@ -642,9 +642,9 @@ public class WorkflowEngineService {
                 BigDecimal minimumCapital;
                 String licenseLabel;
                 switch (fpItype) {
-                        case COMMERCIAL_BANK -> { minimumCapital = new BigDecimal("30000000.00"); licenseLabel = "Commercial Bank"; }
-                        case DTMFI          -> { minimumCapital = new BigDecimal("25000.00");    licenseLabel = "DTMFI (Deposit-Taking)"; }
-                        default             -> { minimumCapital = new BigDecimal("5000.00");     licenseLabel = "Credit-Only MFI"; }
+                        case COMMERCIAL_BANK -> { minimumCapital = new BigDecimal("30000000.00"); licenseLabel = "Tier I Commercial Bank"; }
+                        case DTMFI          -> { minimumCapital = new BigDecimal("5000000.00");  licenseLabel = "DTMFI (Deposit-Taking)"; }
+                        default             -> { minimumCapital = new BigDecimal("25000.00");    licenseLabel = "Credit-Only MFI"; }
                 }
                 BigDecimal openingEquity = projections.stream()
                                 .filter(p -> p.getYear() != null && p.getTotalEquity() != null)

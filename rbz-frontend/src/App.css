@@ -568,3 +568,61 @@ button, input, select, textarea, a,
   .rbz-stage-card-body { padding: 24px !important; }
   .rbz-form-actions { margin: 24px -24px -24px !important; padding: 16px 24px; }
 }
+
+
+.rbz-stage-references {
+  margin: 20px 24px 0;
+  padding: 16px;
+  border: 1px solid #d8e1eb;
+  border-left: 4px solid #9a7b3f;
+  border-radius: 10px;
+  background: #f8fafc;
+}
+
+.rbz-stage-references h5 {
+  margin: 0 0 4px;
+  color: #003366;
+  font-size: 15px;
+}
+
+.rbz-stage-references p {
+  margin: 0;
+  color: #516173;
+  font-size: 13px;
+}
+
+.rbz-stage-reference-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.rbz-stage-reference-links a {
+  display: flex;
+  flex-direction: column;
+  max-width: 280px;
+  padding: 9px 11px;
+  border: 1px solid #cbd8e6;
+  border-radius: 8px;
+  color: #003366;
+  background: #fff;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.35;
+  text-decoration: none;
+}
+
+.rbz-stage-reference-links a:hover {
+  border-color: #9a7b3f;
+  box-shadow: 0 2px 6px rgba(0, 51, 102, 0.12);
+}
+
+.rbz-stage-reference-links span {
+  margin-bottom: 3px;
+  color: #9a7b3f;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}

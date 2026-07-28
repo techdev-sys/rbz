@@ -3,8 +3,10 @@ uvicorn
 python-multipart
 google-generativeai
 google-genai
+anthropic
 python-dotenv
 pypdf==3.17.4
 pytesseract==0.3.10
 Pillow==10.0.0
 azure-ai-formrecognizer
+pymupdf

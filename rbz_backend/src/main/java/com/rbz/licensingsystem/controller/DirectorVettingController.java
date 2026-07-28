@@ -126,6 +126,21 @@ public class DirectorVettingController {
             director.setVettingStatus(directorDetails.getVettingStatus());
         }
 
+        // Update document submission flags (YES/NO strings checked by the workflow engine's
+        // dir-police-*/dir-fit-* rules)
+        if (directorDetails.getPoliceClearanceSubmitted() != null) {
+            director.setPoliceClearanceSubmitted(directorDetails.getPoliceClearanceSubmitted());
+        }
+        if (directorDetails.getProbityFormSubmitted() != null) {
+            director.setProbityFormSubmitted(directorDetails.getProbityFormSubmitted());
+        }
+        if (directorDetails.getNetWorthStatementSubmitted() != null) {
+            director.setNetWorthStatementSubmitted(directorDetails.getNetWorthStatementSubmitted());
+        }
+        if (directorDetails.getLetterOfUndertakingSubmitted() != null) {
+            director.setLetterOfUndertakingSubmitted(directorDetails.getLetterOfUndertakingSubmitted());
+        }
+
         // Update risk flag (from CV analysis)
         director.setRiskFlag(directorDetails.isRiskFlag());
 

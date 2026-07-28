@@ -1,0 +1,56 @@
+server {
+    listen ${PORT};
+    server_name _;
+
+    # Private-network container IPs change on every redeploy/restart of the
+    # upstream service, and a plain proxy_pass hostname is resolved once at
+    # nginx startup and cached — so a backend restart leaves us pointing at a
+    # dead IP. Using a variable forces per-request DNS resolution via
+    # Railway's private-network resolver (fd12::10, from /etc/resolv.conf).
+    resolver [fd12::10] valid=5s;
+
+    root /usr/share/nginx/html;
+    index index.html;
+
+    location /api/ {
+        # proxy_pass with a variable does NOT strip the matched location
+        # prefix the way a static proxy_pass URI would — it always forwards
+        # the full original request URI. So no "/api/" suffix here, or
+        # requests land on the upstream as /api/api/... and never match a route.
+        set $backend_upstream "http://${BACKEND_HOST}";
+        proxy_pass         $backend_upstream;
+        proxy_http_version 1.1;
+        proxy_set_header   X-Real-IP         $remote_addr;
+        proxy_set_header   X-Forwarded-For   $proxy_add_x_forwarded_for;
+        proxy_set_header   X-Forwarded-Proto $scheme;
+        proxy_read_timeout 120s;
+        client_max_body_size 25m;
+    }
+
+    location /chat {
+        set $ai_upstream "http://${AI_HOST}";
+        proxy_pass         $ai_upstream;
+        proxy_http_version 1.1;
+        proxy_read_timeout 120s;
+        client_max_body_size 25m;
+    }
+
+    location /reference-documents {
+        set $ai_upstream "http://${AI_HOST}";
+        proxy_pass         $ai_upstream;
+        proxy_http_version 1.1;
+        proxy_read_timeout 120s;
+    }
+
+    location / {
+        try_files $uri $uri/ /index.html;
+    }
+
+    add_header X-Frame-Options        "SAMEORIGIN"    always;
+    add_header X-Content-Type-Options "nosniff"       always;
+    add_header Referrer-Policy        "strict-origin" always;
+
+    gzip on;
+    gzip_types text/plain text/css application/json application/javascript text/xml;
+    gzip_min_length 1000;
+}

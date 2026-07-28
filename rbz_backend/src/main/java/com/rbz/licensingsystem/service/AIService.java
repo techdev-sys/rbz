@@ -4,6 +4,7 @@ import com.rbz.licensingsystem.dto.DirectorDTO;
 import com.rbz.licensingsystem.dto.VerificationResultDTO; // Make sure you have this DTO
 import com.rbz.licensingsystem.dto.CR11ResultDTO; // Make sure you have this DTO
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.ByteArrayResource;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
@@ -22,6 +23,9 @@ public class AIService {
 
     private final RestTemplate restTemplate;
 
+    @Value("${ai.service.url:http://localhost:8000}")
+    private String aiServiceUrl;
+
     @Autowired
     public AIService(RestTemplate restTemplate) {
         this.restTemplate = restTemplate;
@@ -29,7 +33,7 @@ public class AIService {
 
     // 1. Extract Info from CV (Director Vetting)
     public DirectorDTO extractDirectorInfo(MultipartFile file) throws IOException {
-        String url = "http://localhost:8000/analyze-document";
+        String url = aiServiceUrl + "/analyze-document";
 
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.MULTIPART_FORM_DATA);
@@ -55,7 +59,7 @@ public class AIService {
     // 2. Verify Generic Documents (Police, Tax, Affidavit)
     public ResponseEntity<?> verifyDocument(MultipartFile file, String docType, String directorName) {
         try {
-            String url = "http://localhost:8000/verify-document";
+            String url = aiServiceUrl + "/verify-document";
 
             HttpHeaders headers = new HttpHeaders();
             headers.setContentType(MediaType.MULTIPART_FORM_DATA);
@@ -84,7 +88,7 @@ public class AIService {
 
     // 3. Extract CR11 (Shareholding)
     public CR11ResultDTO extractCR11(MultipartFile file) throws IOException {
-        String url = "http://localhost:8000/verify-document";
+        String url = aiServiceUrl + "/verify-document";
 
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.MULTIPART_FORM_DATA);
@@ -110,7 +114,7 @@ public class AIService {
     // ===
     public ResponseEntity<?> verifyCompanyDocument(MultipartFile file, String docType, Long companyId) {
         try {
-            String url = "http://localhost:8000/verify-document";
+            String url = aiServiceUrl + "/verify-document";
 
             HttpHeaders headers = new HttpHeaders();
             headers.setContentType(MediaType.MULTIPART_FORM_DATA);

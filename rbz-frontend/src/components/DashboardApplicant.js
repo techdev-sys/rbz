@@ -4,6 +4,7 @@ import { QRCodeSVG } from 'qrcode.react';
 import ApplicantRegistration from './ApplicantRegistration';
 import HowToApply from './HowToApply';
 import ApplicationChat from './ApplicationChat';
+import AIChatbot from './AIChatbot';
 import ActivityTimeline from './ActivityTimeline';
 import { getCompanyProfile, getReport, getStageReviews, getCompanyDocuments } from '../services/api';
 import './DashboardApplicant.css';
@@ -51,7 +52,7 @@ const TYPE_CARDS = [
         tag: 'CREDIT-ONLY MFI',
         title: 'Microfinance Institution',
         sub: 'Credit-only lending to individuals and small enterprises under RBZ supervision.',
-        capital: 'USD 25,000',
+        capital: 'USD 25,000 equivalent',
         stages: '10',
         color: '#2e7d32',
         value: 'Credit-Only Microfinance'
@@ -60,14 +61,14 @@ const TYPE_CARDS = [
         tag: 'DEPOSIT-TAKING MFI',
         title: 'Deposit-Taking MFI',
         sub: 'Micro-deposits and lending with DIPF registration under RBZ direct oversight.',
-        capital: 'USD 25,000',
+        capital: 'USD 5,000,000 equivalent',
         stages: '11',
         color: '#1565c0',
         value: 'Deposit-Taking Microfinance'
     },
     {
         tag: 'COMMERCIAL BANK',
-        title: 'Commercial Bank',
+        title: 'Commercial Bank (Tier I)',
         sub: 'Full-service banking under the Basel III regulatory capital framework.',
         capital: 'USD 30,000,000',
         stages: '14',
@@ -621,7 +622,14 @@ const DashboardApplicant = ({ onLogout, onStartApp }) => {
 
                 {feedbackModal}
                 {existingId && (
-                    <ApplicationChat companyId={existingId} currentUserRole="applicant" userName={applicantName} />
+                    <>
+                        <ApplicationChat companyId={existingId} currentUserRole="applicant" userName={applicantName} side="left" />
+                        <AIChatbot
+                            companyId={existingId}
+                            institutionName={institutionName}
+                            userName={applicantName}
+                        />
+                    </>
                 )}
             </div>
         );
@@ -814,7 +822,16 @@ const DashboardApplicant = ({ onLogout, onStartApp }) => {
 
             {feedbackModal}
             {existingId && (
-                <ApplicationChat companyId={existingId} currentUserRole="applicant" userName={applicantName} />
+                <>
+                    <ApplicationChat companyId={existingId} currentUserRole="applicant" userName={applicantName} side="left" />
+                    <AIChatbot
+                        companyId={existingId}
+                        currentStage={mappedStage.number}
+                        stageName={mappedStage.name}
+                        institutionName={institutionName}
+                        userName={applicantName}
+                    />
+                </>
             )}
         </div>
     );

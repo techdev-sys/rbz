@@ -28,13 +28,49 @@ import DashboardApplicant from './components/DashboardApplicant';
 import DashboardSenior from './components/DashboardSenior';
 import DashboardExaminer from './components/DashboardExaminer';
 import AIChatbot from './components/AIChatbot';
-import ApplicationChat from './components/ApplicationChat';
 import ExaminerInstitutionReview from './components/ExaminerInstitutionReview';
 import ReviewControlPanel from './components/ReviewControlPanel';
 import WorkflowStatusPanel from './components/WorkflowStatusPanel';
 import RequireAuth from './components/RequireAuth';
 import { getCompanyProfile } from './services/api';
 import { clearSession, getRole } from './services/session';
+
+
+const StageReferencePanel = ({ stageName }) => {
+  const [references, setReferences] = useState([]);
+
+  useEffect(() => {
+    let active = true;
+    fetch('/reference-documents?stage_name=' + encodeURIComponent(stageName))
+      .then((response) => response.ok ? response.json() : { documents: [] })
+      .then((data) => {
+        if (active) setReferences(data.documents || []);
+      })
+      .catch(() => {
+        if (active) setReferences([]);
+      });
+    return () => { active = false; };
+  }, [stageName]);
+
+  if (!references.length) return null;
+
+  return (
+    <section className="rbz-stage-references" aria-label="Official reference documents">
+      <div>
+        <h5>Official reference material</h5>
+        <p>Use these RBZ source documents to complete this stage. The licensing assistant cites the same library in its answers.</p>
+      </div>
+      <div className="rbz-stage-reference-links">
+        {references.slice(0, 4).map((reference) => (
+          <a href={reference.documentUrl} key={reference.id} rel="noreferrer" target="_blank">
+            <span>{reference.category}</span>
+            {reference.title}
+          </a>
+        ))}
+      </div>
+    </section>
+  );
+};
 
 // --- CORE WIZARD COMPONENT ---
 const WizardLayout = ({ userRole, companyData, setCompanyData }) => {
@@ -187,12 +223,14 @@ const WizardLayout = ({ userRole, companyData, setCompanyData }) => {
               const cid = companyData?.id || localStorage.getItem('currentCompanyId');
               const advance = () => { markComplete(stage.id); setCurrentStep(currentStep + 1); };
 
-              if (Comp === CompanyProfile) return <CompanyProfile onComplete={handleProfileComplete} readOnly={isReadOnly} />;
-              if (Comp === Stage2Ownership) return <Stage2Ownership companyId={cid} onComplete={advance} readOnly={isReadOnly} />;
-              if (Comp === DirectorVetting) return <DirectorVetting companyData={companyData} onComplete={advance} readOnly={isReadOnly} />;
-              if (Comp === Stage10ApplicationReview) return <Stage10ApplicationReview onGoToStage={setCurrentStep} onSubmit={handleExitToDashboard} />;
-              if (Comp === ReportGeneration) return <ReportGeneration />;
-              return <Comp onComplete={advance} readOnly={isReadOnly} />;
+              const referencePanel = <StageReferencePanel stageName={stage.name} />;
+
+              if (Comp === CompanyProfile) return <>{referencePanel}<CompanyProfile onComplete={handleProfileComplete} readOnly={isReadOnly} /></>;
+              if (Comp === Stage2Ownership) return <>{referencePanel}<Stage2Ownership companyId={cid} onComplete={advance} readOnly={isReadOnly} /></>;
+              if (Comp === DirectorVetting) return <>{referencePanel}<DirectorVetting companyData={companyData} onComplete={advance} readOnly={isReadOnly} /></>;
+              if (Comp === Stage10ApplicationReview) return <>{referencePanel}<Stage10ApplicationReview stepNumber={currentStep} onGoToStage={setCurrentStep} onSubmit={handleExitToDashboard} /></>;
+              if (Comp === ReportGeneration) return <>{referencePanel}<ReportGeneration /></>;
+              return <>{referencePanel}<Comp onComplete={advance} readOnly={isReadOnly} /></>;
             })()}
 
             <div className="rbz-workspace-footer">
@@ -220,22 +258,13 @@ const WizardLayout = ({ userRole, companyData, setCompanyData }) => {
       </div>
 
       {userRole === 'applicant' && (
-        <>
-          <AIChatbot
-            companyId={companyData?.id || localStorage.getItem('currentCompanyId')}
-            currentStage={currentStep}
-            stageName={stages[currentStep - 1]?.name}
-            institutionName={localStorage.getItem('institutionName') || ''}
-            userName={localStorage.getItem('applicantName') || 'Applicant'}
-          />
-          {/* Human channel to the examination team — stacked above the AI guide bubble */}
-          <ApplicationChat
-            companyId={companyData?.id || localStorage.getItem('currentCompanyId')}
-            currentUserRole="applicant"
-            userName={localStorage.getItem('applicantName') || 'Applicant'}
-            bottomOffset={96}
-          />
-        </>
+        <AIChatbot
+          companyId={companyData?.id || localStorage.getItem('currentCompanyId')}
+          currentStage={currentStep}
+          stageName={stages[currentStep - 1]?.name}
+          institutionName={localStorage.getItem('institutionName') || ''}
+          userName={localStorage.getItem('applicantName') || 'Applicant'}
+        />
       )}
     </div>
   );
