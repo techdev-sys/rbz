@@ -1,7 +1,7 @@
 # RBZ AI & Machine Learning Integration Guide
 
 ## Overview
-We have implemented an AI-powered Document Intelligence layer using **Python (FastAPI)** and **Google Gemini 2.5**. This system automatically extracts data from uploaded PDF documents and verifies their authenticity.
+We have implemented an AI-powered Document Intelligence layer using **Python (FastAPI)** and a **locally-hosted Ollama model**, since application data cannot leave RBZ-controlled infrastructure. This system automatically extracts data from uploaded PDF documents and verifies their authenticity.
 
 ## Architecture
 1.  **Backend (Java Spring Boot)**: Receives file uploads from the frontend.
@@ -25,22 +25,29 @@ We have implemented an AI-powered Document Intelligence layer using **Python (Fa
 
 2.  **Install Dependencies** (if not already installed):
     ```bash
-    pip install fastapi uvicorn google-generativeai pypdf python-multipart python-dotenv pytesseract
+    pip install -r requirements.txt
     ```
 
-3.  **Start the Server**:
+3.  **Install and start Ollama, then pull the model**:
+    ```bash
+    curl -fsSL https://ollama.com/install.sh | sh
+    ollama pull llama3.1:8b
+    ```
+    Set `OLLAMA_HOST` / `OLLAMA_MODEL` in `.env` if Ollama runs somewhere other than `http://localhost:11434`.
+
+4.  **Start the Server**:
     ```bash
     uvicorn main:app --reload --port 8000
     ```
 
-4.  **Java Backend Configuration**:
+5.  **Java Backend Configuration**:
     *   The Java backend is configured to look for the AI service at `http://localhost:8000`.
     *   Ensure the Python service is running *before* you attempt document uploads.
 
 ## How it Works (Example: Tax Clearance)
 1.  User uploads `TaxClearance.pdf` on the portal.
 2.  Java Backend sends the file to Python AI.
-3.  Python AI sends the content to Gemini with a prompt: *"Analyze Tax Clearance... Extract Certificate Number..."*.
-4.  Gemini returns a JSON object with the data.
+3.  Python AI sends the content to the local Ollama model with a prompt: *"Analyze Tax Clearance... Extract Certificate Number..."*.
+4.  Ollama returns a JSON object with the data.
 5.  Java Backend saves this data into the `ComplianceDocumentation` table.
 6.  The **MFI Evaluation Report** will now automatically include this data in the "Compliance" section.

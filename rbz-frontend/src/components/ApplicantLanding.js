@@ -27,7 +27,7 @@ const INSTITUTION_TYPES = [
         id: 'bank',
         tag: 'COMMERCIAL BANK',
         abbr: 'BANK',
-        title: 'Commercial Bank (Tier I)',
+        title: 'Commercial Bank',
         subtitle: 'Full-service banking under the Basel III framework',
         capital: 'USD 30,000,000',
         stages: '14',
@@ -42,6 +42,7 @@ const ApplicantLanding = () => {
 
     const goLogin = () => navigate('/login');
     const goRegister = () => navigate('/register');
+    const goLicenceType = (id) => navigate(`/licence-types/${id}`);
 
     useEffect(() => {
         const hero = heroRef.current;
@@ -189,7 +190,14 @@ const ApplicantLanding = () => {
 
                 <div className="licence-cards">
                     {INSTITUTION_TYPES.map((type) => (
-                        <div className={`licence-card licence-card-${type.id}`} key={type.id}>
+                        <div
+                            className={`licence-card licence-card-${type.id}`}
+                            key={type.id}
+                            role="button"
+                            tabIndex={0}
+                            onClick={() => goLicenceType(type.id)}
+                            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') goLicenceType(type.id); }}
+                        >
                             <div className="lc-header">
                                 <span className="lc-abbr-tag">{type.abbr}</span>
                                 <span className="lc-stages-count">{type.stages} stages</span>
@@ -199,22 +207,8 @@ const ApplicantLanding = () => {
                             <h3 className="lc-title">{type.title}</h3>
                             <p className="lc-subtitle">{type.subtitle}</p>
 
-                            <div className="lc-capital">
-                                <span className="lc-capital-label">Minimum capital requirement</span>
-                                <span className="lc-capital-value">{type.capital}</span>
-                            </div>
-
-                            <ul className="lc-features">
-                                {type.products.map(p => (
-                                    <li key={p}>
-                                        <span className="lc-check">&#10003;</span>
-                                        {p}
-                                    </li>
-                                ))}
-                            </ul>
-
-                            <button className="lc-apply-btn" onClick={goRegister}>
-                                Apply for this licence
+                            <button className="lc-apply-btn" onClick={(e) => { e.stopPropagation(); goLicenceType(type.id); }}>
+                                View requirements &amp; apply
                             </button>
                         </div>
                     ))}

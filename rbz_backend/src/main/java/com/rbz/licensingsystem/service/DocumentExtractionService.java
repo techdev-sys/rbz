@@ -488,7 +488,7 @@ public class DocumentExtractionService {
         return dist;
     }
 
-    /* ---- numeric coercion helpers (Gemini may return numbers as strings) ---- */
+    /* ---- numeric coercion helpers (Ollama may return numbers as strings) ---- */
 
     private BigDecimal toBigDecimal(Object v) {
         if (v == null) return null;

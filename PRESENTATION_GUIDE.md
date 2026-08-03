@@ -70,14 +70,14 @@ After submission, switch to the **Applicant Dashboard** (`/applicant`) to show: 
 This is the section people will ask about most. Be specific — vague "AI-powered" claims invite skepticism from a regulator audience; concrete mechanics build trust.
 
 ### 4.1 The AI assistant (chat)
-- Dual-provider: tries **Google Gemini** first, falls back to **Anthropic Claude** if Gemini times out or errors, then falls back to a static "contact licensing@rbz.zw" message if both are unavailable — so a chat outage never looks like a broken page, it degrades gracefully.
+- Runs on a **local Ollama model** — all inference happens on RBZ-controlled infrastructure, so no application data ever leaves the server. If Ollama times out or errors, it falls back to a static "contact licensing@rbz.zw" message — so a chat outage never looks like a broken page, it degrades gracefully.
 - **Retrieval-grounded**: before answering, it retrieves the most relevant excerpts from a curated library of the actual regulatory source documents (Banking Act, RBZ Act, AML/CFT Guideline, Basel III standards, licensing requirement PDFs, etc.) and is instructed to cite the document, section number and page — and explicitly told **not** to invent a citation or answer beyond what the excerpts support. If nothing relevant is retrieved, it says so and directs the applicant to their examiner rather than guessing.
 - Context-aware: it knows which wizard stage the applicant is currently on and tailors its default suggested questions accordingly.
 
 ### 4.2 Document verification & structured extraction
 - When an applicant uploads a document (financial statements, business plan, tax clearance, insurance policy, etc.), the system:
   1. Extracts text locally (or via Azure Document Intelligence OCR if it's a scanned image).
-  2. Sends it to Gemini with a **strict per-document-type JSON schema prompt** — e.g. for financial statements, it extracts capital structure, shareholders' equity, retained earnings, share counts, straight into the same field names the Java backend already uses.
+  2. Sends it to the local Ollama model with a **strict per-document-type JSON schema prompt** — e.g. for financial statements, it extracts capital structure, shareholders' equity, retained earnings, share counts, straight into the same field names the Java backend already uses.
   3. The model is asked to self-report whether the document even matches what was expected (`valid: true/false`, plus a `confidence` score and human-readable `reason`) — so a mismatched or fraudulent-looking upload is flagged, not silently accepted.
 - **Critical safety rule, worth stating explicitly to a regulator**: if the AI provider is down, over quota, or the extracted confidence is low, the document is routed to **MANUAL_REVIEW** — it is never silently auto-approved. There is no code path where an AI failure results in a document being treated as verified. This was a deliberate design decision, not an accident.
 
@@ -115,7 +115,7 @@ This is the section people will ask about most. Be specific — vague "AI-powere
 | Question | Answer |
 |---|---|
 | "What happens if the AI is wrong?" | It never has final say. Every AI verdict is a recommendation the examiner can override; if the AI fails entirely, the document goes to manual review by default — never auto-approved. |
-| "What happens if the AI provider goes down / runs out of credits?" | The chat and document pipeline both have provider fallback chains (Gemini → Claude → static message / manual review), so an outage degrades functionality, it doesn't break the workflow. |
+| "What happens if the AI provider goes down?" | The chat pipeline falls back to a static message, and the document pipeline routes to manual review — since inference is local (Ollama), there's no external quota/credit dependency to run out of, but a hung or crashed local model still degrades gracefully instead of breaking the workflow. |
 | "Can an applicant fake a document past the AI?" | Every upload is hashed (SHA-256) and version-tracked; magic-byte validation checks the file actually is what its extension claims; and any AI-uncertain document routes to a human either way. |
 | "Is this replacing examiner judgement?" | No — it's replacing manual paper-shuffling and giving examiners a faster starting point (extracted data, a risk score, a first-pass document check) so they can spend their judgement on substance, not data entry. |
 | "How do you know the audit trail hasn't been tampered with?" | The hash-chain integrity check (`/api/audit/verify-integrity`) recomputes every entry's hash from its content and the previous entry's hash — any edit anywhere in history breaks the chain from that point forward, and the check reports exactly where. |
@@ -136,6 +136,6 @@ This is the section people will ask about most. Be specific — vague "AI-powere
 
 ## 8. One-line answers to keep in your back pocket
 
-- **"What model powers this?"** — Google Gemini (primary) with Anthropic Claude as automatic fallback; both are swappable without changing the workflow logic.
+- **"What model powers this?"** — A local Ollama model (llama3.1:8b by default), running on RBZ-controlled infrastructure; swappable via config without changing the workflow logic, and no application data leaves the server.
 - **"Is applicant data secure?"** — JWT-authenticated access scoped per company; applicants can only ever see/upload to their own record; staff access is role-gated; passwords are hashed, not stored in plaintext; every login/logout is tracked and tokens are invalidated on logout.
 - **"Why different stage counts per institution type?"** — Because the regulatory scrutiny genuinely differs: a Commercial Bank carries Basel III capital adequacy, liquidity, and cyber-risk obligations an MFI does not, so the wizard and risk model are built around real regulatory asymmetry, not one-size-fits-all.

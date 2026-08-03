@@ -17,10 +17,10 @@ public class DataSeeder implements ApplicationRunner {
     private final ExaminerRepository examinerRepository;
     private final PasswordEncoder passwordEncoder;
 
-    private static final String DEFAULT_SENIOR_USERNAME  = "admin";
-    private static final String DEFAULT_SENIOR_PASSWORD  = "Admin@RBZ2026!";
-    private static final String DEFAULT_SENIOR_FULL_NAME = "Deputy Director - Bank Supervision";
-    private static final String DEFAULT_SENIOR_EMPLOYEE_ID = "SBE-2026-001";
+    private static final String DEFAULT_SENIOR_USERNAME  = "s.mashonganyika@rbz.co.zw";
+    private static final String DEFAULT_SENIOR_PASSWORD  = "Password123";
+    private static final String DEFAULT_SENIOR_FULL_NAME = "S. Mashonganyika";
+    private static final String DEFAULT_SENIOR_EMPLOYEE_ID = "DD-2026-001";
 
     @Override
     public void run(ApplicationArguments args) {
@@ -40,7 +40,7 @@ public class DataSeeder implements ApplicationRunner {
         senior.setPassword(passwordEncoder.encode(DEFAULT_SENIOR_PASSWORD));
         senior.setRole("SENIOR_BE");
         senior.setDesignation("Deputy Director - Bank Supervision");
-        senior.setEmail("dd.banksupervision@rbz.zw");
+        senior.setEmail(DEFAULT_SENIOR_USERNAME);
         senior.setStatus("ACTIVE");
         senior.setCreatedBy("SYSTEM");
         examinerRepository.save(senior);

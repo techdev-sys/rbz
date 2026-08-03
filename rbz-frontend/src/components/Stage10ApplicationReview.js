@@ -28,18 +28,6 @@ const STAGE_LABELS = {
     DOCUMENT_INTAKE: 'Documents Upload',
 };
 
-const STAGE_ICONS = {
-    COMPANY_PROFILE: '🏢',
-    LEGAL_OWNERSHIP_VALIDATION: '⚖️',
-    DIRECTOR_VALIDATION: '👥',
-    BOARD_COMMITTEES: '📋',
-    CAPITAL_VALIDATION: '💰',
-    BUSINESS_PLAN_REVIEW: '📈',
-    FINANCIAL_PROJECTIONS: '📊',
-    GROWTH_AND_DEVELOPMENT: '🌱',
-    DOCUMENT_INTAKE: '📁',
-};
-
 const Stage10ApplicationReview = ({ stepNumber, onGoToStage, onSubmit }) => {
     const [logs, setLogs] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -122,7 +110,7 @@ const Stage10ApplicationReview = ({ stepNumber, onGoToStage, onSubmit }) => {
     if (submitted) {
         return (
             <Container className="py-5 text-center">
-                <div style={{ fontSize: '4rem' }}>✅</div>
+                <div style={{ fontSize: '3rem', fontWeight: 700, color: '#003366' }}>&#10003;</div>
                 <h3 className="fw-bold mt-3" style={{ color: '#003366' }}>Application Submitted Successfully</h3>
                 <p className="text-muted">Your application has been submitted to the Reserve Bank of Zimbabwe. You will be contacted via your registered email with further instructions.</p>
             </Container>
@@ -146,7 +134,7 @@ const Stage10ApplicationReview = ({ stepNumber, onGoToStage, onSubmit }) => {
                     <div style={{ background: canSubmit ? 'linear-gradient(135deg, #003366, #1a5276)' : 'linear-gradient(135deg, #7b1d1d, #a93226)', padding: '24px', color: 'white' }}>
                         <Row className="align-items-center">
                             <Col md={8}>
-                                <h5 className="fw-bold mb-1">{canSubmit ? '✅ All checks passed — Ready to submit' : `⚠️ ${failedStages} stage(s) require attention`}</h5>
+                                <h5 className="fw-bold mb-1">{canSubmit ? 'All checks passed — Ready to submit' : `${failedStages} stage(s) require attention`}</h5>
                                 <p className="mb-3" style={{ opacity: 0.8, fontSize: '0.9rem' }}>
                                     {canSubmit
                                         ? 'Your application has passed all mandatory validation checks.'
@@ -208,7 +196,6 @@ const Stage10ApplicationReview = ({ stepNumber, onGoToStage, onSubmit }) => {
                                     onClick={() => !stageOk && onGoToStage && onGoToStage(stepNum)}
                                 >
                                     <div className="d-flex align-items-center gap-3">
-                                        <span style={{ fontSize: '1.6rem' }}>{STAGE_ICONS[stage]}</span>
                                         <div>
                                             <div className="fw-bold" style={{ color: '#003366', fontSize: '0.95rem' }}>
                                                 Stage {stepNum}: {STAGE_LABELS[stage]}
@@ -279,7 +266,6 @@ const Stage10ApplicationReview = ({ stepNumber, onGoToStage, onSubmit }) => {
                                         {softFlags.map((log, i) => (
                                             <div key={i} className="d-flex align-items-start gap-3 px-4 py-2"
                                                 style={{ borderBottom: i < softFlags.length - 1 ? '1px solid #fef3cd' : 'none' }}>
-                                                <span style={{ color: '#f0a500', flexShrink: 0 }}>⚑</span>
                                                 <div>
                                                     <div className="fw-semibold small" style={{ color: '#856404' }}>{log.ruleId} — Advisory</div>
                                                     <div className="small text-muted">{log.details}</div>
@@ -324,7 +310,7 @@ const Stage10ApplicationReview = ({ stepNumber, onGoToStage, onSubmit }) => {
                         {submitting
                             ? <><Spinner animation="border" size="sm" className="me-2" />Submitting...</>
                             : canSubmit
-                                ? '✅ Submit Final Application'
+                                ? 'Submit Final Application'
                                 : `Fix ${totalHardFails} issue${totalHardFails !== 1 ? 's' : ''} to continue`}
                     </Button>
                 )}

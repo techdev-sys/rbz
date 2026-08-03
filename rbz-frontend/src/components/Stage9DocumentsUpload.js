@@ -11,20 +11,20 @@ import '../Premium.css';
 
 const getDocumentTypes = (institutionType) => {
     const base = [
-        { key: 'financialStatements', name: 'Audited Financial Statements (Last 3 Years)', description: 'Required for thorough financial health assessment.', icon: '📊', required: true },
-        { key: 'businessPlan', name: 'Strategic Business Plan', description: 'Required for growth and feasibility assessment.', icon: '📈', required: true },
-        { key: 'portfolioReport', name: 'Loan Portfolio Report', description: 'Required for asset quality verification.', icon: '💼', required: true },
-        { key: 'creditPolicy', name: 'Credit & Risk Policy Manual', description: 'Required for risk management compliance.', icon: '📋', required: true },
-        { key: 'operationalManual', name: 'Operational Policy Manual', description: 'Standard operating procedures for the institution.', icon: '📖', required: false },
-        { key: 'taxClearance', name: 'ZIMRA Tax Clearance Certificate', description: 'Proof of regulatory tax compliance.', icon: '🧾', required: true },
-        { key: 'insurancePolicy', name: 'Credit Insurance Policy', description: 'Valid insurance for credit portfolio (if applicable).', icon: '🛡️', required: false },
+        { key: 'financialStatements', name: 'Audited Financial Statements (Last 3 Years)', description: 'Required for thorough financial health assessment.', required: true },
+        { key: 'businessPlan', name: 'Strategic Business Plan', description: 'Required for growth and feasibility assessment.', required: true },
+        { key: 'portfolioReport', name: 'Loan Portfolio Report', description: 'Required for asset quality verification.', required: true },
+        { key: 'creditPolicy', name: 'Credit & Risk Policy Manual', description: 'Required for risk management compliance.', required: true },
+        { key: 'operationalManual', name: 'Operational Policy Manual', description: 'Standard operating procedures for the institution.', required: false },
+        { key: 'taxClearance', name: 'ZIMRA Tax Clearance Certificate', description: 'Proof of regulatory tax compliance.', required: true },
+        { key: 'insurancePolicy', name: 'Credit Insurance Policy', description: 'Valid insurance for credit portfolio (if applicable).', required: false },
     ];
     if (institutionType === 'DTMFI' || institutionType === 'COMMERCIAL_BANK') {
-        base.push({ key: 'amlCftPolicy', name: 'AML/CFT Compliance Programme', description: 'Anti-Money Laundering / Combating Financing of Terrorism policy (mandatory for deposit-taking institutions).', icon: '🔒', required: true });
+        base.push({ key: 'amlCftPolicy', name: 'AML/CFT Compliance Programme', description: 'Anti-Money Laundering / Combating Financing of Terrorism policy (mandatory for deposit-taking institutions).', required: true });
     }
     if (institutionType === 'COMMERCIAL_BANK') {
-        base.push({ key: 'riskFramework', name: 'Enterprise Risk Management Framework', description: 'Board-approved ERM covering credit, market, liquidity and operational risk (mandatory for banks).', icon: '⚖️', required: true });
-        base.push({ key: 'technologyPolicy', name: 'IT & Technology Risk Policy', description: 'Information technology and cybersecurity risk policy (recommended for commercial banks).', icon: '💻', required: false });
+        base.push({ key: 'riskFramework', name: 'Enterprise Risk Management Framework', description: 'Board-approved ERM covering credit, market, liquidity and operational risk (mandatory for banks).', required: true });
+        base.push({ key: 'technologyPolicy', name: 'IT & Technology Risk Policy', description: 'Information technology and cybersecurity risk policy (recommended for commercial banks).', required: false });
     }
     return base;
 };
@@ -339,27 +339,24 @@ const DocumentSlotCard = ({ def, slot, readOnly, onFileSelect, onRemove, onUploa
         >
             <Row className="align-items-start g-3">
                 <Col md={4}>
-                    <div className="d-flex align-items-start gap-3">
-                        <div className="fs-3" aria-hidden="true">{def.icon}</div>
-                        <div>
-                            <div className="fw-bold" style={{ color: 'var(--rbz-navy, #003366)' }}>
-                                {def.name}
-                                {def.required && (
-                                    <Badge bg="danger" className="ms-2 small" style={{ fontSize: '0.6rem' }}>
-                                        REQUIRED
-                                    </Badge>
-                                )}
-                                {!def.required && (
-                                    <Badge bg="secondary" className="ms-2 small" style={{ fontSize: '0.6rem' }}>
-                                        OPTIONAL
-                                    </Badge>
-                                )}
-                            </div>
-                            <div className="small text-muted">{def.description}</div>
-                            {server?.version > 1 && (
-                                <div className="small text-muted mt-1">Version {server.version} on file</div>
+                    <div>
+                        <div className="fw-bold" style={{ color: 'var(--rbz-navy, #003366)' }}>
+                            {def.name}
+                            {def.required && (
+                                <Badge bg="danger" className="ms-2 small" style={{ fontSize: '0.6rem' }}>
+                                    REQUIRED
+                                </Badge>
+                            )}
+                            {!def.required && (
+                                <Badge bg="secondary" className="ms-2 small" style={{ fontSize: '0.6rem' }}>
+                                    OPTIONAL
+                                </Badge>
                             )}
                         </div>
+                        <div className="small text-muted">{def.description}</div>
+                        {server?.version > 1 && (
+                            <div className="small text-muted mt-1">Version {server.version} on file</div>
+                        )}
                     </div>
                 </Col>
 

@@ -613,6 +613,7 @@
     flex-direction: column;
     box-shadow: 0 10px 30px rgba(0, 34, 68, 0.06);
     transition: transform 0.22s ease, box-shadow 0.22s ease;
+    cursor: pointer;
 }
 
 .licence-card:hover {

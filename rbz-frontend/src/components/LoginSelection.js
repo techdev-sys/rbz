@@ -2,21 +2,7 @@ import React, { useState } from 'react';
 import { Form, Button, Spinner, Alert } from 'react-bootstrap';
 import { authenticateUser, friendlyError } from '../services/api';
 
-const STAFF_ROLES = [
-    {
-        value: 'examiner',
-        label: 'Bank Examiner',
-        description: 'Review and assess applications'
-    },
-    {
-        value: 'senior_be',
-        label: 'Senior Bank Examiner',
-        description: 'Approve, manage examiners, oversee licensing'
-    }
-];
-
 const LoginSelection = ({ onSelectRole }) => {
-    const [selectedRole, setSelectedRole] = useState('examiner');
     const [username, setUsername] = useState('');
     const [password, setPassword] = useState('');
     const [loading, setLoading] = useState(false);
@@ -40,14 +26,18 @@ const LoginSelection = ({ onSelectRole }) => {
         setLoading(true);
         setError(null);
         try {
-            const response = await authenticateUser(selectedRole, username.trim(), password);
+            const response = await authenticateUser('examiner', username.trim(), password);
             const data = response.data;
             if (!data?.token) {
                 setError('Authentication failed. Please try again.');
                 return;
             }
-            persistStaffSession(data, selectedRole);
-            onSelectRole(selectedRole);
+            // The account itself determines seniority — there is no role picker.
+            const actualRole = data.role === 'SENIOR_BE' || data.role === 'SENIOR_EXAMINER'
+                ? 'senior_be'
+                : 'examiner';
+            persistStaffSession(data, actualRole);
+            onSelectRole(actualRole);
         } catch (err) {
             setError(friendlyError(err, 'Sign in failed. Please verify your details and try again.'));
         } finally {
@@ -157,7 +147,7 @@ const LoginSelection = ({ onSelectRole }) => {
                             borderRadius: '4px',
                             textTransform: 'uppercase',
                         }}>
-                            Internal Staff Portal
+                            Bank Examiner Portal
                         </span>
                     </div>
                 </div>
@@ -183,62 +173,6 @@ const LoginSelection = ({ onSelectRole }) => {
                     )}
 
                     <Form onSubmit={handleSubmit} noValidate>
-                        {/* Role selector */}
-                        <div style={{ marginBottom: '22px' }}>
-                            <div style={{
-                                fontSize: '0.65rem',
-                                textTransform: 'uppercase',
-                                letterSpacing: '1.2px',
-                                color: 'rgba(255, 255, 255, 0.4)',
-                                fontWeight: 700,
-                                marginBottom: '10px'
-                            }}>
-                                Access Level
-                            </div>
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                                {STAFF_ROLES.map(opt => {
-                                    const active = selectedRole === opt.value;
-                                    return (
-                                        <button
-                                            key={opt.value}
-                                            type="button"
-                                            onClick={() => { setSelectedRole(opt.value); setError(null); }}
-                                            style={{
-                                                width: '100%',
-                                                textAlign: 'left',
-                                                padding: '11px 16px',
-                                                borderRadius: '6px',
-                                                border: active
-                                                    ? '1px solid rgba(184,150,110,0.7)'
-                                                    : '1px solid rgba(255, 255, 255, 0.10)',
-                                                background: active
-                                                    ? 'rgba(184,150,110,0.10)'
-                                                    : 'rgba(255, 255, 255, 0.03)',
-                                                cursor: 'pointer',
-                                                transition: 'all 0.15s',
-                                            }}
-                                        >
-                                            <div style={{
-                                                color: active ? '#B8966E' : 'rgba(255, 255, 255, 0.85)',
-                                                fontSize: '0.85rem',
-                                                fontWeight: active ? 700 : 600,
-                                                letterSpacing: '0.2px'
-                                            }}>
-                                                {opt.label}
-                                            </div>
-                                            <div style={{
-                                                color: 'rgba(255, 255, 255, 0.4)',
-                                                fontSize: '0.72rem',
-                                                marginTop: '2px'
-                                            }}>
-                                                {opt.description}
-                                            </div>
-                                        </button>
-                                    );
-                                })}
-                            </div>
-                        </div>
-
                         {/* Username */}
                         <Form.Group className="mb-3">
                             <Form.Label style={{
@@ -248,11 +182,11 @@ const LoginSelection = ({ onSelectRole }) => {
                                 color: 'rgba(255, 255, 255, 0.4)',
                                 fontWeight: 700
                             }}>
-                                Username
+                                RBZ Email Address
                             </Form.Label>
                             <Form.Control
                                 type="text"
-                                placeholder="Enter your assigned username"
+                                placeholder="e.g. s.chinogara@rbz.co.zw"
                                 value={username}
                                 onChange={e => setUsername(e.target.value)}
                                 autoFocus
@@ -338,7 +272,7 @@ const LoginSelection = ({ onSelectRole }) => {
                         >
                             {loading
                                 ? <Spinner size="sm" animation="border" />
-                                : 'Sign in to Staff Portal'}
+                                : 'Sign in to Bank Examiner Portal'}
                         </Button>
                     </Form>
                 </div>

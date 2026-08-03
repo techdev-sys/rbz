@@ -3,20 +3,10 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
 from typing import Dict, List, Optional
-import google.generativeai as genai  # legacy - used for document analysis
-try:
-    from google import genai as new_genai  # new SDK for chat
-    from google.genai import types as genai_types
-    NEW_SDK_AVAILABLE = True
-except ImportError:
-    NEW_SDK_AVAILABLE = False
-import anthropic
+import requests
 import os
 import json
-from datetime import datetime
-import time
 import asyncio
-from google.api_core.exceptions import ResourceExhausted
 import pypdf
 import io
 from dotenv import load_dotenv
@@ -70,6 +60,27 @@ class RegulatoryCitation(BaseModel):
     documentUrl: str
 
 
+def _ocr_pdf_bytes_with_tesseract(content: bytes, dpi: int = 200) -> str:
+    """Local, offline OCR fallback for scanned PDFs: rasterize each page with
+    PyMuPDF and run it through Tesseract. Used ahead of Azure Document
+    Intelligence so document verification keeps working even when no Azure
+    key is configured (the common case for on-prem RBZ deployments)."""
+    try:
+        import fitz  # PyMuPDF
+
+        doc = fitz.open(stream=content, filetype="pdf")
+        text_parts = []
+        for page in doc:
+            pix = page.get_pixmap(dpi=dpi)
+            image = Image.open(io.BytesIO(pix.tobytes("png")))
+            text_parts.append(pytesseract.image_to_string(image))
+        doc.close()
+        return "\n".join(text_parts)
+    except Exception as error:
+        print(f"--- WARNING: local Tesseract OCR failed: {error} ---")
+        return ""
+
+
 AZURE_OCR_CACHE_SUFFIX = ".ocr.json"
 
 
@@ -78,6 +89,31 @@ def _ocr_cache_path(document_path: Path) -> Path:
 
 
 OCR_CHUNK_PAGES = 10  # pages per Azure call; keeps each upload well under the ~4MB free-tier cap
+
+
+def _ocr_pages_with_tesseract(document_path: Path, page_numbers: List[int]) -> Dict[int, str]:
+    """Local, offline OCR for specific 1-indexed pages of a PDF using
+    PyMuPDF + Tesseract. Tried before Azure Document Intelligence so the
+    reference-document knowledge base still picks up scanned pages when no
+    Azure key is configured."""
+    if not page_numbers:
+        return {}
+    try:
+        import fitz  # PyMuPDF
+
+        src = fitz.open(str(document_path))
+        pages: Dict[int, str] = {}
+        for page_number in page_numbers:
+            pix = src[page_number - 1].get_pixmap(dpi=200)
+            image = Image.open(io.BytesIO(pix.tobytes("png")))
+            text = pytesseract.image_to_string(image)
+            if text.strip():
+                pages[page_number] = text
+        src.close()
+        return pages
+    except Exception as error:
+        print(f"--- WARNING: local Tesseract OCR failed for {document_path.name}: {error} ---")
+        return {}
 
 
 def _ocr_pages_with_azure(document_path: Path, page_numbers: List[int]) -> Dict[int, str]:
@@ -156,8 +192,12 @@ def _get_ocr_text_for_pages(document_path: Path, page_numbers: List[int]) -> Dic
 
     missing = [p for p in page_numbers if p not in cached]
     if missing:
-        print(f"--- INFO: {document_path.name} pages {missing} have no extractable text — running Azure OCR (one-time, cached) ---")
-        newly_ocred = _ocr_pages_with_azure(document_path, missing)
+        print(f"--- INFO: {document_path.name} pages {missing} have no extractable text — running local Tesseract OCR (one-time, cached) ---")
+        newly_ocred = _ocr_pages_with_tesseract(document_path, missing)
+        still_missing = [p for p in missing if p not in newly_ocred]
+        if still_missing:
+            print(f"--- INFO: {document_path.name} pages {still_missing} unreadable by Tesseract — trying Azure OCR ---")
+            newly_ocred.update(_ocr_pages_with_azure(document_path, still_missing))
         if newly_ocred:
             cached.update(newly_ocred)
             try:
@@ -355,34 +395,18 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Configure legacy Gemini (for document analysis)
-genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
+# All AI inference runs locally via Ollama — no application data leaves this
+# server. Point OLLAMA_HOST at a remote Ollama instance only if that instance
+# is itself on RBZ-controlled infrastructure.
+OLLAMA_HOST = os.getenv("OLLAMA_HOST", "http://localhost:11434")
+OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "llama3.1:8b")
+AI_PROVIDER_TIMEOUT_SECONDS = 60
 
-# Configure new SDK client (for chat)
-_GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
-if NEW_SDK_AVAILABLE and _GEMINI_API_KEY and _GEMINI_API_KEY != "your_gemini_api_key_here":
-    _new_genai_client = new_genai.Client(api_key=_GEMINI_API_KEY)
-else:
-    _new_genai_client = None
-    print("⚠️  WARNING: GEMINI_API_KEY not set or invalid. Chat will use fallback responses.")
-
-# Configure Anthropic Claude client (redundancy — used when Gemini fails or is slow)
-_ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY", "")
-if _ANTHROPIC_API_KEY:
-    _anthropic_client = anthropic.Anthropic(api_key=_ANTHROPIC_API_KEY)
-else:
-    _anthropic_client = None
-    print("⚠️  WARNING: ANTHROPIC_API_KEY not set. Claude fallback disabled.")
-
-CLAUDE_MODEL = "claude-sonnet-5"
-# Per-provider timeout before falling through to the next AI provider.
-AI_PROVIDER_TIMEOUT_SECONDS = 12
-
-# Configure Local Tesseract OCR (Windows path - Linux will ignore if not found)
-try:
-    pytesseract.pytesseract.tesseract_cmd = r'C:\Users\chinogs\AppData\Local\Programs\Tesseract-OCR\tesseract.exe'
-except:
-    pass  # On Linux, tesseract is found in PATH automatically
+# Local Tesseract OCR — resolved via PATH (installed as the `tesseract-ocr`
+# system package). Override only if it's installed somewhere non-standard.
+_TESSERACT_CMD_OVERRIDE = os.getenv("TESSERACT_CMD")
+if _TESSERACT_CMD_OVERRIDE:
+    pytesseract.pytesseract.tesseract_cmd = _TESSERACT_CMD_OVERRIDE
 
 # ============================================================
 # RBZ LICENSING SYSTEM PROMPT - AI Assistant Context
@@ -595,39 +619,27 @@ class ChatResponse(BaseModel):
     suggestions: Optional[List[str]] = []
     citations: List[RegulatoryCitation] = []
 
-def _gemini_chat_call(history: List[ChatMessage], final_message: str, system_prompt: str) -> str:
-    history_contents = []
-    for msg in history:
-        role = "user" if msg.role == "user" else "model"
-        history_contents.append(genai_types.Content(role=role, parts=[genai_types.Part(text=msg.content)]))
-    history_contents.append(genai_types.Content(role="user", parts=[genai_types.Part(text=final_message)]))
-    response = _new_genai_client.models.generate_content(
-        model="gemini-flash-latest",
-        contents=history_contents,
-        config=genai_types.GenerateContentConfig(
-            system_instruction=system_prompt,
-            temperature=0.7,
-            max_output_tokens=1024,
-        )
-    )
-    return response.text
-
-
-def _claude_chat_call(history: List[ChatMessage], final_message: str, system_prompt: str) -> str:
-    messages = [{"role": "user" if m.role == "user" else "assistant", "content": m.content} for m in history]
+def _ollama_chat_call(history: List[ChatMessage], final_message: str, system_prompt: str) -> str:
+    messages = [{"role": "system", "content": system_prompt}]
+    messages += [{"role": "user" if m.role == "user" else "assistant", "content": m.content} for m in history]
     messages.append({"role": "user", "content": final_message})
-    response = _anthropic_client.messages.create(
-        model=CLAUDE_MODEL,
-        max_tokens=1024,
-        system=system_prompt,
-        messages=messages,
+    response = requests.post(
+        f"{OLLAMA_HOST}/api/chat",
+        json={
+            "model": OLLAMA_MODEL,
+            "messages": messages,
+            "stream": False,
+            "options": {"temperature": 0.7, "num_predict": 1024},
+        },
+        timeout=AI_PROVIDER_TIMEOUT_SECONDS,
     )
-    return next((block.text for block in response.content if block.type == "text"), "")
+    response.raise_for_status()
+    return response.json()["message"]["content"]
 
 
 @app.post("/chat", response_model=ChatResponse)
 async def chat_with_ai(request: ChatRequest):
-    """Interactive AI chatbot for applicants - powered by Gemini"""
+    """Interactive AI chatbot for applicants - powered by a local Ollama model"""
     try:
         # Build context prefix for current stage if available. The frontend sends
         # the authoritative stage name; the number alone is only a fallback.
@@ -673,42 +685,15 @@ async def chat_with_ai(request: ChatRequest):
         reply_text = None
         system_prompt = RBZ_SYSTEM_PROMPT + source_instruction
 
-        # --- Try Gemini and Claude in order; a timeout or error on one
-        # falls through to the next provider, so a slow/unavailable
-        # provider never blocks the response. ---
-        providers = []
-        if _new_genai_client:
-            providers.append(("gemini", _gemini_chat_call))
-        if _anthropic_client:
-            providers.append(("claude", _claude_chat_call))
-
-        for provider_name, provider_call in providers:
-            try:
-                reply_text = await asyncio.wait_for(
-                    asyncio.to_thread(provider_call, request.history or [], final_message, system_prompt),
-                    timeout=AI_PROVIDER_TIMEOUT_SECONDS,
-                )
-                if reply_text:
-                    break
-            except asyncio.TimeoutError:
-                print(f"{provider_name} timed out after {AI_PROVIDER_TIMEOUT_SECONDS}s, trying next provider")
-            except Exception as provider_err:
-                print(f"{provider_name} error: {provider_err}")
-
-        # --- Fallback to old Gemini SDK ---
-        if not reply_text:
-            try:
-                model = genai.GenerativeModel(
-                    model_name="gemini-flash-latest",
-                    system_instruction=RBZ_SYSTEM_PROMPT + source_instruction
-                )
-                chat_history = [{"role": m.role, "parts": [m.content]} for m in (request.history or [])]
-                chat = model.start_chat(history=chat_history)
-                resp = generate_content_with_retry(chat, final_message)
-                if resp:
-                    reply_text = resp.text
-            except Exception as legacy_err:
-                print(f"Legacy SDK error: {legacy_err}")
+        try:
+            reply_text = await asyncio.wait_for(
+                asyncio.to_thread(_ollama_chat_call, request.history or [], final_message, system_prompt),
+                timeout=AI_PROVIDER_TIMEOUT_SECONDS,
+            )
+        except asyncio.TimeoutError:
+            print(f"ollama timed out after {AI_PROVIDER_TIMEOUT_SECONDS}s")
+        except Exception as provider_err:
+            print(f"ollama error: {provider_err}")
 
         # --- Static fallback ---
         if not reply_text:
@@ -750,23 +735,6 @@ def generate_suggestions(current_stage_name: Optional[str], user_message: str) -
 
     return stage_suggestions.get(current_stage_name or "", default_suggestions)
 
-def generate_content_with_retry(chat_or_model, prompt_or_parts, max_retries=3):
-    """Retry wrapper for both chat.send_message and model.generate_content"""
-    base_delay = 5
-    for attempt in range(max_retries):
-        try:
-            if hasattr(chat_or_model, 'send_message'):
-                return chat_or_model.send_message(prompt_or_parts)
-            else:
-                return chat_or_model.generate_content(prompt_or_parts)
-        except ResourceExhausted:
-            if attempt == max_retries - 1:
-                raise
-            wait_time = base_delay * (attempt + 1)
-            print(f"Quota exceeded. Retrying in {wait_time} seconds...")
-            time.sleep(wait_time)
-    return None
-
 def get_source_backed_fallback(citations: List[RegulatoryCitation]) -> str:
     primary = citations[0]
     locator = f"{primary.title}"
@@ -801,8 +769,6 @@ def get_fallback_response(message: str) -> str:
 
     return "Thank you for your message. I'm currently experiencing connectivity issues. Our support team is available at licensing@rbz.zw or +263 242 703000 during working hours (Mon-Fri, 8:00 AM - 4:30 PM)."
 
-# (generate_content_with_retry is defined above in the chat section)
-
 class AnalysisResult(BaseModel):
     full_name: str
     date_of_birth: str
@@ -828,7 +794,11 @@ async def analyze_document(file: UploadFile = File(...)):
         pass
 
     if not text.strip():
-        print("--- INFO: No text found in CV. Falling back to Azure Document AI for OCR... ---")
+        print("--- INFO: No text found in CV. Falling back to local Tesseract OCR... ---")
+        text = _ocr_pdf_bytes_with_tesseract(content)
+
+    if not text.strip() and os.getenv("AZURE_FORM_RECOGNIZER_KEY"):
+        print("--- INFO: Tesseract found no text. Falling back to Azure Document AI for OCR... ---")
         try:
             from azure.ai.formrecognizer import DocumentAnalysisClient
             from azure.core.credentials import AzureKeyCredential
@@ -910,11 +880,12 @@ async def analyze_document(file: UploadFile = File(...)):
 
 
 # ============================================================
-# STRUCTURED EXTRACTION VIA GEMINI (per company-document type)
+# STRUCTURED EXTRACTION VIA OLLAMA (per company-document type)
 # ============================================================
-# Per-doc-type prompt that instructs Gemini to return strict JSON. The schema
-# matches the field names used by DocumentExtractionService.parse* on the Java
-# side, so the response can be passed straight through with minimal mapping.
+# Per-doc-type prompt that instructs the model to return strict JSON. The
+# schema matches the field names used by DocumentExtractionService.parse* on
+# the Java side, so the response can be passed straight through with minimal
+# mapping.
 EXTRACTION_PROMPTS = {
     "financial_statements": """You are extracting structured data from audited
 financial statements for a Microfinance Institution applying for a Reserve Bank
@@ -1065,10 +1036,10 @@ DOCUMENT TEXT:
 }
 
 
-def gemini_structured_extract(text: str, doc_type: str, entity_name: str):
-    """Send extracted document text to Gemini with a per-doc-type JSON-schema
-    prompt. Returns the parsed dict on success, or None on failure (caller
-    should route to manual review)."""
+def ollama_structured_extract(text: str, doc_type: str, entity_name: str):
+    """Send extracted document text to the local Ollama model with a
+    per-doc-type JSON-schema prompt. Returns the parsed dict on success, or
+    None on failure (caller should route to manual review)."""
     prompt_template = EXTRACTION_PROMPTS.get(doc_type)
     if not prompt_template:
         return None
@@ -1076,26 +1047,30 @@ def gemini_structured_extract(text: str, doc_type: str, entity_name: str):
         # Too little text to extract anything meaningful
         return None
 
-    # Cap input length so we don't blow Gemini's context window on huge PDFs.
+    # Cap input length so we don't blow the model's context window on huge PDFs.
     safe_text = text[:60000]
     prompt = prompt_template.format(text=safe_text, entity=entity_name or "the applicant")
 
     try:
-        model = genai.GenerativeModel("gemini-flash-latest")
-        response = model.generate_content(
-            prompt,
-            generation_config=genai.types.GenerationConfig(
-                response_mime_type="application/json",
-                temperature=0.0,
-            ),
+        response = requests.post(
+            f"{OLLAMA_HOST}/api/chat",
+            json={
+                "model": OLLAMA_MODEL,
+                "messages": [{"role": "user", "content": prompt}],
+                "format": "json",
+                "stream": False,
+                "options": {"temperature": 0.0},
+            },
+            timeout=AI_PROVIDER_TIMEOUT_SECONDS,
         )
-        raw = (response.text or "").strip()
+        response.raise_for_status()
+        raw = (response.json()["message"]["content"] or "").strip()
         if not raw:
             return None
         try:
             return json.loads(raw)
         except json.JSONDecodeError:
-            # Sometimes the model wraps JSON in markdown. Try to recover.
+            # Some models wrap JSON in markdown fences despite format=json. Try to recover.
             if raw.startswith("```"):
                 raw = raw.strip("`")
                 if raw.lower().startswith("json"):
@@ -1106,62 +1081,24 @@ def gemini_structured_extract(text: str, doc_type: str, entity_name: str):
                     return None
             return None
     except Exception as e:
-        print(f"--- WARNING: Gemini structured extraction failed for {doc_type}: {e} ---")
-        return None
-
-
-def claude_structured_extract(text: str, doc_type: str, entity_name: str):
-    """Same contract as gemini_structured_extract, used as a fallback when
-    Gemini fails or times out."""
-    if not _anthropic_client:
-        return None
-    prompt_template = EXTRACTION_PROMPTS.get(doc_type)
-    if not prompt_template:
-        return None
-    if not text or len(text.strip()) < 50:
-        return None
-
-    safe_text = text[:60000]
-    prompt = prompt_template.format(text=safe_text, entity=entity_name or "the applicant")
-
-    try:
-        response = _anthropic_client.messages.create(
-            model=CLAUDE_MODEL,
-            max_tokens=2048,
-            messages=[{"role": "user", "content": prompt + "\n\nRespond with JSON only, no markdown fences."}],
-        )
-        raw = next((b.text for b in response.content if b.type == "text"), "").strip()
-        if not raw:
-            return None
-        if raw.startswith("```"):
-            raw = raw.strip("`")
-            if raw.lower().startswith("json"):
-                raw = raw[4:].strip()
-        try:
-            return json.loads(raw)
-        except json.JSONDecodeError:
-            return None
-    except Exception as e:
-        print(f"--- WARNING: Claude structured extraction failed for {doc_type}: {e} ---")
+        print(f"--- WARNING: Ollama structured extraction failed for {doc_type}: {e} ---")
         return None
 
 
 async def structured_extract_with_fallback(text: str, doc_type: str, entity_name: str):
-    """Try Gemini then Claude, in order, each bounded by AI_PROVIDER_TIMEOUT_SECONDS
-    so a slow provider falls through to the next rather than blocking the request."""
-    for provider_name, extract_fn in (("gemini", gemini_structured_extract), ("claude", claude_structured_extract)):
-        try:
-            result = await asyncio.wait_for(
-                asyncio.to_thread(extract_fn, text, doc_type, entity_name),
-                timeout=AI_PROVIDER_TIMEOUT_SECONDS,
-            )
-            if result is not None:
-                return result
-        except asyncio.TimeoutError:
-            print(f"{provider_name} structured extraction timed out after {AI_PROVIDER_TIMEOUT_SECONDS}s")
-        except Exception as e:
-            print(f"{provider_name} structured extraction error: {e}")
-    return None
+    """Bounded by AI_PROVIDER_TIMEOUT_SECONDS so a hung local model doesn't
+    block the request indefinitely."""
+    try:
+        return await asyncio.wait_for(
+            asyncio.to_thread(ollama_structured_extract, text, doc_type, entity_name),
+            timeout=AI_PROVIDER_TIMEOUT_SECONDS,
+        )
+    except asyncio.TimeoutError:
+        print(f"ollama structured extraction timed out after {AI_PROVIDER_TIMEOUT_SECONDS}s")
+        return None
+    except Exception as e:
+        print(f"ollama structured extraction error: {e}")
+        return None
 
 
 @app.post("/verify-document")
@@ -1206,7 +1143,13 @@ async def verify_document(
             return {"valid": False, "reason": "We could not read this file. Please upload a clear, uncorrupted PDF document.", "detected_name": "Unknown"}
 
         if not text.strip():
-            print("--- INFO: No text found (Scanned Document). Falling back to Azure Document AI for OCR... ---")
+            print("--- INFO: No text found (Scanned Document). Falling back to local Tesseract OCR... ---")
+            text = _ocr_pdf_bytes_with_tesseract(content)
+            if text.strip():
+                print(f"--- INFO: Tesseract extracted {len(text)} characters ---")
+
+        if not text.strip() and os.getenv("AZURE_FORM_RECOGNIZER_KEY"):
+            print("--- INFO: Tesseract found no text. Falling back to Azure Document AI for OCR... ---")
 
             # Re-read file cursor
             await file.seek(0)
@@ -1250,6 +1193,14 @@ async def verify_document(
                      "detected_name": "Unknown"
                  }
 
+        if not text.strip():
+            return {
+                "valid": False,
+                "needs_manual_review": True,
+                "reason": "The document could not be read automatically (no OCR text found). It has been referred to an examiner for manual review.",
+                "detected_name": "Unknown"
+            }
+
         text_lower = text.lower()
         director_name_lower = director_name.lower()
 
@@ -1263,9 +1214,9 @@ async def verify_document(
 
         # 3. Apply Rules
 
-        # Company-document types: route to Gemini structured extraction. The
+        # Company-document types: route to Ollama structured extraction. The
         # extracted fields land directly on the response so the Java side can
-        # populate Stage 4-8 entities. If Gemini fails, we route to manual
+        # populate Stage 4-8 entities. If Ollama fails, we route to manual
         # review (NEVER auto-approve).
         STRUCTURED_DOC_TYPES = {
             "financial_statements", "business_plan", "portfolio_report",
@@ -1281,7 +1232,7 @@ async def verify_document(
                     "detected_name": director_name,
                     "confidence": 0.0,
                 }
-            # Gemini supplied a JSON object — pass it through with the rest of
+            # Ollama supplied a JSON object — pass it through with the rest of
             # the standard response envelope so Java can read both the verdict
             # and the structured fields.
             response = {

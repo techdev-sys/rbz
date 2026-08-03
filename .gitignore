@@ -44,3 +44,5 @@ rbz_ai/.pytest_cache/
 *.jar
 *.war
 /database_verification_*.sql
+*.xlsx
+/RBZ APPLICATION SUBMISSIONS/

@@ -44,6 +44,11 @@ const WORKFLOW_STAGE_MAP = {
     FINANCIAL_PROJECTIONS: { number: 7, name: 'Financial Projections' },
     GROWTH_AND_DEVELOPMENT: { number: 8, name: 'Growth & Development' },
     DOCUMENT_INTAKE: { number: 10, name: 'Documents Upload' },
+    DEPOSIT_PROTECTION: { number: 10, name: 'Deposit Protection (DIPF)' },
+    CAPITAL_ADEQUACY: { number: 10, name: 'Capital Adequacy (Basel III)' },
+    LIQUIDITY_MANAGEMENT: { number: 10, name: 'Liquidity Management' },
+    IT_CYBER_RISK: { number: 10, name: 'IT & Cyber Risk' },
+    RECOVERY_RESOLUTION: { number: 10, name: 'Recovery & Resolution' },
     FINAL_RECOMMENDATION: { number: 11, name: 'Application Review' },
 };
 
@@ -68,7 +73,7 @@ const TYPE_CARDS = [
     },
     {
         tag: 'COMMERCIAL BANK',
-        title: 'Commercial Bank (Tier I)',
+        title: 'Commercial Bank',
         sub: 'Full-service banking under the Basel III regulatory capital framework.',
         capital: 'USD 30,000,000',
         stages: '14',

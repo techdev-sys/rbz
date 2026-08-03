@@ -456,9 +456,20 @@ const Stage2Panel = ({ shareholders, ownershipDocs }) => {
     );
 };
 
-const Stage3Panel = ({ directors }) => (
+const Stage3Panel = ({ directors, onGenerateForm3 }) => (
     <div>
-        <SectionTitle title="Board of Directors" />
+        <div className="d-flex justify-content-between align-items-center">
+            <SectionTitle title="Board of Directors" />
+            {directors?.length > 0 && (
+                <Button
+                    size="sm"
+                    onClick={onGenerateForm3}
+                    style={{ background: '#003366', border: 'none', color: '#fff', fontWeight: 600, borderRadius: '6px', paddingInline: '14px', marginBottom: '12px' }}
+                >
+                    Generate Form 3
+                </Button>
+            )}
+        </div>
         {directors?.length > 0 ? (
             directors.map((d, i) => (
                 <Card key={i} className="border-0 mb-3" style={{ background: '#f8f9fa', borderRadius: '8px' }}>
@@ -1031,6 +1042,93 @@ const ExaminerInstitutionReview = ({ companyId, onBack, viewerRole = 'examiner' 
 
     // ── EXPORT FUNCTIONS ──────────────────────────
 
+    // Generates the RBZ "Form 3: Fitness & Probity Vetting" workbook, populated from the
+    // directors submitted by the applicant in Stage 3. Examiner-only — applicants never see this.
+    const generateForm3Excel = () => {
+        const directors = stageData.directors || [];
+        if (directors.length === 0) {
+            alert('No directors have been submitted for this institution yet.');
+            return;
+        }
+
+        const institution = company?.companyName || 'Institution';
+        const dateReceived = company?.applicationDate || new Date().toLocaleDateString('en-GB');
+
+        const headers = [
+            'Date Application Received', 'Name of Institution', 'Name of Proposed Appointee',
+            'Position Being Considered for', 'Qualifications', 'Experience',
+            'All Documents Submitted', 'Compliance Comment', 'Examiner Responsible'
+        ];
+
+        const submittedDocsSummary = (d) => {
+            const docs = [
+                ['CV', d.qualifications || d.experience],
+                ['Affidavit', d.affidavitVerified],
+                ['Net Worth Statement', d.netWorthStatementSubmitted === 'YES' || d.netWorthVerified],
+                ['Police Clearance', d.policeClearanceSubmitted === 'YES' || d.policeClearanceVerified],
+                ['Tax Clearance', d.taxClearanceVerified],
+                ['Certified ID/Passport', d.certifiedIdVerified],
+                ['Fit & Proper Questionnaire', d.probityFormSubmitted === 'YES'],
+            ].filter(([, present]) => !!present).map(([label]) => label);
+            return docs.length ? docs.join(', ') : 'None submitted';
+        };
+
+        const dataRows = directors.map((d) => [
+            dateReceived,
+            institution,
+            d.fullName || '',
+            d.designation || 'Not specified',
+            d.qualifications || 'Pending CV analysis',
+            d.experience || 'Pending CV analysis',
+            submittedDocsSummary(d),
+            d.riskFlag ? 'Risk flagged by automated CV screening - requires examiner review' : '',
+            ''
+        ]);
+
+        const aoa = [
+            [],
+            [null, null, 'FITNESS  & PROBITY VETTING'],
+            [null, null, 'Form 3'],
+            ['*N.B. This Form is prepared in compliance with the requirements of the Banking Act [Chapter 24:20]/ the Building Societies Act [Chapter 24:02]/ the Microfinance Act [Chapter 24:30] as read with the Prudential Standard No.07/2017: Fitness and Probity Assessment Criteria'],
+            [],
+            headers,
+            ...dataRows,
+            [],
+            ['**N.B.  EXAMINER TO COMPLETE SECTION BELOW'],
+            [],
+            ['Examiner to confirm that a search has been conducted for judgment debts(Indicate Yes/No) ( Where there are findings please capture under Examiner Comments below)'],
+            [],
+            [],
+            ['The Examiner to indicate whether  proposed Appointee requires clearance by another regulatory authority (Where not applicable please indicate N/A) '],
+            ['Where such clearance is required Examiner to confirm under comments below that the relevant letter has been actioned and to confirm date such correspondence was actioned'],
+            [],
+            ['N.B -Where clearance by the Curator is required please attach the letter to the Curator'],
+            [],
+            ['Examiner to comment on any irregularities noted:'],
+            [],
+            ["Examiner's Comments:"],
+            ['Recommended/Not Recommended for Approval by the Examiner'],
+            [],
+            ['Name/ Signature of the Examiner', examinerName],
+            ['Date :', new Date().toLocaleDateString('en-GB')],
+            [],
+            ['Date Submitted to Compliance :']
+        ];
+
+        const ws = XLSX.utils.aoa_to_sheet(aoa);
+        ws['!cols'] = [
+            { wch: 20 }, { wch: 24 }, { wch: 26 }, { wch: 24 }, { wch: 40 }, { wch: 40 }, { wch: 28 }, { wch: 32 }, { wch: 20 }
+        ];
+        ws['!merges'] = [
+            { s: { r: 1, c: 2 }, e: { r: 1, c: 4 } },
+            { s: { r: 2, c: 2 }, e: { r: 2, c: 4 } }
+        ];
+
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, institution.substring(0, 28) || 'Form 3');
+        XLSX.writeFile(wb, `Form 3 Fitness and Probity - ${institution}.xlsx`);
+    };
+
     const exportToExcel = () => {
         const wb = XLSX.utils.book_new();
 
@@ -1254,7 +1352,7 @@ const ExaminerInstitutionReview = ({ companyId, onBack, viewerRole = 'examiner' 
         switch (selectedStage) {
             case 1: return <Stage1Panel company={company} />;
             case 2: return <Stage2Panel shareholders={shareholders} ownershipDocs={ownershipDocs} />;
-            case 3: return <Stage3Panel directors={directors} />;
+            case 3: return <Stage3Panel directors={directors} onGenerateForm3={generateForm3Excel} />;
             case 4: return <Stage4Panel appForm={appForm} />;
             case 5: return <Stage5Panel capital={capital} financials={financials} loanDist={loanDist} />;
             case 6: return <Stage6Panel products={products} />;
@@ -1417,6 +1515,13 @@ const ExaminerInstitutionReview = ({ companyId, onBack, viewerRole = 'examiner' 
                                     style={{ background: '#1a3a7a', border: 'none', color: '#fff', fontWeight: 600, borderRadius: '6px', paddingInline: '18px' }}
                                 >
                                     Download All Documents (ZIP)
+                                </Button>
+                                <Button
+                                    size="sm"
+                                    onClick={generateForm3Excel}
+                                    style={{ background: '#003366', border: 'none', color: '#fff', fontWeight: 600, borderRadius: '6px', paddingInline: '18px' }}
+                                >
+                                    Generate Form 3 (Fitness &amp; Probity)
                                 </Button>
                                 <Button
                                     size="sm"

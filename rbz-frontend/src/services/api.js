@@ -238,6 +238,18 @@ export const getDirectors = async (companyId) => {
     return axios.get(`${API_URL}/director-vetting/company/${companyId}`);
 };
 
+export const createDirector = async (director) => {
+    return axios.post(`${API_URL}/director-vetting/create`, director);
+};
+
+export const updateDirectorRecord = async (directorId, director) => {
+    return axios.put(`${API_URL}/director-vetting/${directorId}`, director);
+};
+
+export const deleteDirectorRecord = async (directorId) => {
+    return axios.delete(`${API_URL}/director-vetting/${directorId}`);
+};
+
 export const uploadCV = async (file, companyId) => {
     const formData = new FormData();
     formData.append("file", file);

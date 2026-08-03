@@ -1,14 +1,25 @@
 import React, { useState } from 'react';
 import { Button, Card, Col, Container, Form, Row, Spinner, Alert, Badge, Modal } from 'react-bootstrap';
-import { uploadCV, verifyDocument, friendlyError } from '../services/api';
+import { uploadCV, verifyDocument, friendlyError, createDirector, updateDirectorRecord, deleteDirectorRecord } from '../services/api';
 import DirectorQuestionnaire from './DirectorQuestionnaire';
+
+const POSITION_OPTIONS = [
+  'Non-Executive Director',
+  'Executive Director',
+  'Chief Executive Officer',
+  'Chief Finance Officer',
+  'Chairperson',
+  'Company Secretary',
+  'Other'
+];
 
 const DirectorVetting = ({ onComplete }) => {
   const [directors, setDirectors] = useState([]);
   const [formData, setFormData] = useState({
     fullName: '',
     idPassport: '',
-    nationality: ''
+    nationality: '',
+    position: ''
   });
 
   const [companyId] = useState(localStorage.getItem('currentCompanyId') || "");
@@ -27,42 +38,62 @@ const DirectorVetting = ({ onComplete }) => {
     setFormData(prev => ({ ...prev, [name]: value }));
   };
 
-  const addDirector = () => {
+  const [addSaving, setAddSaving] = useState(false);
+
+  const addDirector = async () => {
     if (!formData.fullName.trim() || !formData.idPassport.trim()) {
       alert('Please fill in Director Name and ID/Passport Number');
       return;
     }
 
-    const newDirector = {
-      id: Date.now(),
-      fullName: formData.fullName,
-      idPassport: formData.idPassport,
-      nationality: formData.nationality || 'Not specified',
-      status: 'Pending Verification',
-      cvUploaded: false,
-      experience: null,
-      qualifications: null,
-      riskFlag: false,
-      files: {
-        cv: null,
-        affidavit: null,
-        netWorth: null,
-        policeClearance: null,
-        taxClearance: null,
-        certifiedId: null,
-      },
-      verification: {
-        affidavit: { loading: false, result: null },
-        netWorth: { loading: false, result: null },
-        policeClearance: { loading: false, result: null },
-        taxClearance: { loading: false, result: null },
-        certifiedId: { loading: false, result: null },
-      }
-    };
+    setAddSaving(true);
+    try {
+      const res = await createDirector({
+        fullName: formData.fullName,
+        idNumber: formData.idPassport,
+        nationality: formData.nationality || 'Not specified',
+        designation: formData.position || 'Not specified',
+        companyId
+      });
+      const saved = res.data;
 
-    setDirectors([...directors, newDirector]);
-    setFormData({ fullName: '', idPassport: '', nationality: '' });
-    setExpandedDirectorId(newDirector.id); // Auto-expand the newly added director
+      const newDirector = {
+        id: saved.id,
+        fullName: saved.fullName,
+        idPassport: formData.idPassport,
+        nationality: saved.nationality,
+        position: saved.designation,
+        status: saved.status || 'Pending Verification',
+        cvUploaded: false,
+        experience: null,
+        qualifications: null,
+        riskFlag: false,
+        files: {
+          cv: null,
+          affidavit: null,
+          netWorth: null,
+          policeClearance: null,
+          taxClearance: null,
+          certifiedId: null,
+        },
+        verification: {
+          affidavit: { loading: false, result: null },
+          netWorth: { loading: false, result: null },
+          policeClearance: { loading: false, result: null },
+          taxClearance: { loading: false, result: null },
+          certifiedId: { loading: false, result: null },
+        }
+      };
+
+      setDirectors(prev => [...prev, newDirector]);
+      setFormData({ fullName: '', idPassport: '', nationality: '', position: '' });
+      setExpandedDirectorId(newDirector.id); // Auto-expand the newly added director
+    } catch (error) {
+      console.error('Failed to save director', error);
+      alert(friendlyError(error, 'Failed to save director. Please try again.'));
+    } finally {
+      setAddSaving(false);
+    }
   };
 
   const showDeleteConfirm = (director) => {
@@ -73,8 +104,13 @@ const DirectorVetting = ({ onComplete }) => {
     setDeleteModal({ show: false, director: null });
   };
 
-  const confirmDelete = () => {
+  const confirmDelete = async () => {
     if (deleteModal.director) {
+      try {
+        await deleteDirectorRecord(deleteModal.director.id);
+      } catch (error) {
+        console.error('Failed to delete director', error);
+      }
       setDirectors(directors.filter(d => d.id !== deleteModal.director.id));
       setDeleteModal({ show: false, director: null });
     }
@@ -97,6 +133,19 @@ const DirectorVetting = ({ onComplete }) => {
     try {
       const result = await uploadCV(director.files.cv, companyId);
       const riskFlag = String(result.riskFlag).toLowerCase() === 'true';
+      const experience = result.experience || 'No experience summary available.';
+      const qualifications = result.qualifications || 'No qualifications listed.';
+
+      // uploadCV creates its own Director row for the AI-extracted CV data; merge that
+      // analysis into this director's actual record, then discard the extra row it made.
+      try {
+        await updateDirectorRecord(directorId, { experience, qualifications, riskFlag });
+        if (result.id && result.id !== directorId) {
+          await deleteDirectorRecord(result.id);
+        }
+      } catch (mergeErr) {
+        console.error('Failed to merge CV analysis into director record', mergeErr);
+      }
 
       setDirectors(directors.map(d => {
         if (d.id === directorId) {
@@ -239,7 +288,7 @@ const DirectorVetting = ({ onComplete }) => {
                 <Form.Text className="text-muted">National ID or Passport Number</Form.Text>
               </Form.Group>
             </Col>
-            <Col lg={3} md={8}>
+            <Col lg={2} md={6}>
               <Form.Group className="mb-3">
                 <Form.Label>Nationality</Form.Label>
                 <Form.Select
@@ -257,14 +306,28 @@ const DirectorVetting = ({ onComplete }) => {
                 </Form.Select>
               </Form.Group>
             </Col>
-            <Col lg={2} md={4} className="d-flex align-items-start">
+            <Col lg={2} md={6}>
+              <Form.Group className="mb-3">
+                <Form.Label>Position Being Considered for</Form.Label>
+                <Form.Select
+                  name="position"
+                  value={formData.position}
+                  onChange={handleInputChange}
+                >
+                  <option value="">Select position</option>
+                  {POSITION_OPTIONS.map(p => <option key={p} value={p}>{p}</option>)}
+                </Form.Select>
+              </Form.Group>
+            </Col>
+            <Col lg={1} md={4} className="d-flex align-items-start">
               <Button
                 variant="primary"
                 onClick={addDirector}
+                disabled={addSaving}
                 className="mt-4 w-100"
                 style={{ whiteSpace: 'nowrap' }}
               >
-                ➕ Add
+                {addSaving ? <Spinner size="sm" animation="border" /> : '➕ Add'}
               </Button>
             </Col>
           </Row>
@@ -297,7 +360,7 @@ const DirectorVetting = ({ onComplete }) => {
                     </Badge>
                   </h5>
                   <small className="text-muted ms-4">
-                    ID/Passport: {director.idPassport} | Nationality: {director.nationality}
+                    ID/Passport: {director.idPassport} | Nationality: {director.nationality} | Position: {director.position || 'Not specified'}
                   </small>
                 </div>
                 <div onClick={(e) => e.stopPropagation()} className="d-flex gap-2 align-items-center">

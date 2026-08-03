@@ -23,6 +23,7 @@ import StageBankRecoveryResolution from './components/StageBankRecoveryResolutio
 import ReportGeneration from './components/ReportGeneration';
 import LoginSelection from './components/LoginSelection';
 import ApplicantLanding from './components/ApplicantLanding';
+import LicenseTypeDetail from './components/LicenseTypeDetail';
 import ApplicantAuth from './components/ApplicantAuth';
 import DashboardApplicant from './components/DashboardApplicant';
 import DashboardSenior from './components/DashboardSenior';
@@ -72,6 +73,29 @@ const StageReferencePanel = ({ stageName }) => {
   );
 };
 
+// Maps the backend's ApplicationStage enum to this wizard's local stage ids,
+// so a returning applicant resumes with the correct stages ticked instead of
+// always starting the progress indicator over from stage 1.
+const WORKFLOW_STAGE_TO_ID = {
+  COMPANY_PROFILE: 1,
+  LEGAL_OWNERSHIP_VALIDATION: 2,
+  DIRECTOR_VALIDATION: 3,
+  BOARD_COMMITTEES: 4,
+  CAPITAL_VALIDATION: 5,
+  BUSINESS_PLAN_REVIEW: 6,
+  FINANCIAL_PROJECTIONS: 7,
+  GROWTH_AND_DEVELOPMENT: 8,
+  DOCUMENT_INTAKE: 10,
+  DEPOSIT_PROTECTION: 'deposit-protection',
+  CAPITAL_ADEQUACY: 'cap-adequacy',
+  LIQUIDITY_MANAGEMENT: 'liquidity',
+  IT_CYBER_RISK: 'it-cyber',
+  RECOVERY_RESOLUTION: 'recovery',
+  FINAL_RECOMMENDATION: 11,
+};
+
+const REVIEW_STATUSES = ['SUBMITTED', 'ASSIGNED', 'UNDER_REVIEW', 'COMPLETED', 'APPROVED', 'REJECTED'];
+
 // --- CORE WIZARD COMPONENT ---
 const WizardLayout = ({ userRole, companyData, setCompanyData }) => {
   const navigate = useNavigate();
@@ -116,6 +140,27 @@ const WizardLayout = ({ userRole, companyData, setCompanyData }) => {
   ];
 
   const progress = stages.length > 0 ? (completedStages.size / stages.length) * 100 : 0;
+
+  // Resume a returning applicant at their actual saved stage instead of
+  // resetting the tick marks/progress bar to zero on every visit.
+  useEffect(() => {
+    if (!companyData) return;
+
+    if (REVIEW_STATUSES.includes(companyData.applicationStatus)) {
+      const reviewIndex = stages.findIndex(s => s.id === 11);
+      setCompletedStages(new Set(stages.slice(0, reviewIndex + 1).map(s => s.id)));
+      setCurrentStep(reviewIndex >= 0 ? reviewIndex + 1 : stages.length);
+      return;
+    }
+
+    const targetId = WORKFLOW_STAGE_TO_ID[companyData.workflowStage];
+    const targetIndex = stages.findIndex(s => s.id === targetId);
+    if (targetIndex > 0) {
+      setCompletedStages(new Set(stages.slice(0, targetIndex).map(s => s.id)));
+      setCurrentStep(targetIndex + 1);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [companyData?.id, companyData?.workflowStage, companyData?.applicationStatus]);
 
   const handleProfileComplete = (data) => {
     setCompanyData(data);
@@ -333,6 +378,7 @@ function AppRoutes() {
     <Routes>
       {/* Public landing */}
       <Route path="/" element={<ApplicantLanding />} />
+      <Route path="/licence-types/:typeId" element={<LicenseTypeDetail />} />
 
       {/* Public applicant auth (separate URLs for sign-in vs registration) */}
       <Route path="/login" element={<ApplicantAuth onLogin={handleRoleSelect} />} />

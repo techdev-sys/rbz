@@ -17,13 +17,19 @@ const CompanyProfile = ({ onComplete, readOnly }) => {
         bankers: '',
         lawyers: '',
         auditors: '',
-        licenseType: 'Credit-Only'
+        licenseType: localStorage.getItem('preselectedLicenseType') || 'Credit-Only'
     });
 
     const [file] = useState(null);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
     const [success, setSuccess] = useState(false);
+
+    // Consume the licence type selected on the licence-detail page (if any) — only relevant once
+    useEffect(() => {
+        localStorage.removeItem('preselectedLicenseType');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
 
     // Pre-populate email from registration session if available
     useEffect(() => {
