@@ -2,6 +2,12 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Button, Card, Container, Alert, Spinner, Badge, Modal, Form, Row, Col } from 'react-bootstrap';
 import { generateReport, getReport, submitReport, reviewReport, recommendReport, approveReport } from '../services/api';
 
+const INSTITUTION_LABELS = {
+    COMMERCIAL_BANK: { label: 'Commercial Bank', color: '#c5a236' },
+    DTMFI: { label: 'Deposit-Taking MFI', color: '#1a6b8a' },
+    MFI: { label: 'Credit-Only MFI', color: '#4a7a4e' },
+};
+
 const ReportGeneration = () => {
     const [companyId] = useState(localStorage.getItem('currentCompanyId'));
     const [loading, setLoading] = useState(false);
@@ -9,8 +15,10 @@ const ReportGeneration = () => {
     const [reportHTML, setReportHTML] = useState('');
     const [reportData, setReportData] = useState(null);
     const [showApprovalModal, setShowApprovalModal] = useState(false);
-    const user_role = localStorage.getItem('userRole') || 'examiner'; // examiner, senior_be
+    const user_role = localStorage.getItem('userRole') || 'examiner';
     const userName = localStorage.getItem('examinerUsername') || (user_role === 'senior_be' ? 'Deputy Director' : 'Bank Examiner');
+    const institutionType = localStorage.getItem('institutionType') || 'MFI';
+    const instLabel = INSTITUTION_LABELS[institutionType] || INSTITUTION_LABELS.MFI;
 
     const [approvalForm, setApprovalForm] = useState({
         preparedBy: '',
@@ -35,7 +43,6 @@ const ReportGeneration = () => {
                 }
             }
         } catch (err) {
-            console.log('No existing report');
         }
     }, [companyId]);
 
@@ -170,15 +177,22 @@ const ReportGeneration = () => {
     return (
         <Container className="mt-4">
             <Card className="shadow-sm">
-                <Card.Header as="h4" className="bg-success text-white">
-                    Stage 10: MFI Evaluation Report Generation & Approval
+                <Card.Header style={{ background: '#003366', color: 'white', padding: '14px 20px' }}>
+                    <div className="d-flex align-items-center justify-content-between">
+                        <div>
+                            <div style={{ fontSize: '1rem', fontWeight: 700 }}>Institution Evaluation Report — Generation & Approval</div>
+                            <div style={{ fontSize: '0.75rem', opacity: 0.65 }}>Reserve Bank of Zimbabwe — Bank Supervision Division</div>
+                        </div>
+                        <span style={{ background: instLabel.color, color: 'white', padding: '4px 12px', borderRadius: '4px', fontSize: '0.75rem', fontWeight: 700, letterSpacing: '0.3px' }}>
+                            {instLabel.label}
+                        </span>
+                    </div>
                 </Card.Header>
                 <Card.Body>
                     {error && <Alert variant="danger">{error}</Alert>}
 
-                    <Alert variant="success">
-                        <h5>🎉 Congratulations!</h5>
-                        <p>You've completed all data entry stages. You can now generate the complete MFI Evaluation Report.</p>
+                    <Alert variant="info" className="mb-4" style={{ borderLeft: '4px solid #003366', background: '#f0f5ff', borderColor: '#c8d8f0' }}>
+                        <strong>All data entry stages are complete.</strong> Generate the full evaluation report for this {instLabel.label} application below.
                     </Alert>
 
                     {reportData && (
@@ -272,8 +286,8 @@ const ReportGeneration = () => {
 
                     {!reportHTML && !loading && (
                         <Alert variant="secondary" className="text-center">
-                            <p>Click "Generate Report" to compile all data into the MFI Evaluation Report format.</p>
-                            <small>The report will include all 8 required tables and all template sections.</small>
+                            <p>Click "Generate Report" to compile all data into the Institution Evaluation Report.</p>
+                            <small>The report will include all required tables and regulatory sections per RBZ Bank Supervision standards.</small>
                         </Alert>
                     )}
                 </Card.Body>

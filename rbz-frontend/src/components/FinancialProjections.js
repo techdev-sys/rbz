@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Card, Form, Button, Table, Alert, Spinner, Row, Col, Tabs, Tab, Badge } from 'react-bootstrap';
-import { saveAllFinancialProjections, getFinancialProjections, uploadProjectionsDocument } from '../services/api';
+import { saveAllFinancialProjections, getFinancialProjections, uploadProjectionsDocument, friendlyError } from '../services/api';
 
 const FinancialProjections = ({ onComplete }) => {
     const [loading, setLoading] = useState(false);
@@ -195,15 +195,13 @@ const FinancialProjections = ({ onComplete }) => {
         try {
             await uploadProjectionsDocument(file, companyId);
             setMessage({
-                type: 'info',
-                text: `📄 File "${file.name}" uploaded. Automatic extraction feature coming soon. Please fill the form manually for now.`
+                type: 'success',
+                text: `Document "${file.name}" uploaded successfully. Please complete the projection fields below.`
             });
-            // TODO: When AI extraction is implemented, auto-fill the projections here
         } catch (error) {
-            console.error('Error uploading document:', error);
             setMessage({
                 type: 'warning',
-                text: 'Document uploaded but extraction is not yet implemented. Please fill the form manually.'
+                text: 'Document upload failed. Please fill the form fields manually.'
             });
         } finally {
             setLoading(false);
@@ -223,9 +221,7 @@ const FinancialProjections = ({ onComplete }) => {
                     { ...projections[2027], companyId }
                 ];
                 await saveAllFinancialProjections(projectionsArray);
-                console.log("Auto-save FinancialProjections successful.");
             } catch (error) {
-                console.warn("Auto-save FinancialProjections failed:", error);
             }
         }, 1500); // 1.5 second debounce
 
@@ -262,7 +258,7 @@ const FinancialProjections = ({ onComplete }) => {
             console.error('Error saving financial projections:', error);
             setMessage({
                 type: 'danger',
-                text: `❌ Error saving financial projections: ${error.response?.data || error.message}`
+                text: friendlyError(error, 'Could not save financial projections. Please try again.')
             });
         } finally {
             setLoading(false);
@@ -278,7 +274,7 @@ const FinancialProjections = ({ onComplete }) => {
     }
 
     return (
-        <div className="animate-fade-in">
+        <div className="animate-fade-in px-4 pt-4 pb-4">
             {message.text && (
                 <Alert variant={message.type} className="mb-4" dismissible onClose={() => setMessage({ type: '', text: '' })}>
                     {message.text}
@@ -286,8 +282,8 @@ const FinancialProjections = ({ onComplete }) => {
             )}
 
             <Card className="rbz-card mb-4">
-                <Card.Header className="bg-rbz-navy text-white">
-                    <h4 className="mb-0">💰 Stage 7: Financial Projections (2-Year)</h4>
+                <Card.Header className="bg-primary text-white">
+                    <h5 className="mb-0">Stage 7: Financial Projections (2-Year)</h5>
                     <p className="mb-0 mt-2" style={{ fontSize: '0.9rem', opacity: 0.9 }}>
                         Provide financial projections for 2026 and 2027 (in ZiG)
                     </p>
@@ -686,7 +682,7 @@ const FinancialProjections = ({ onComplete }) => {
                         <li>Provide realistic 2-year projections (2026-2027) in ZiG based on your business plan</li>
                         <li>Key ratios are calculated automatically as you enter data</li>
                         <li>Ensure projections align with your capital structure and growth plans</li>
-                        <li>You can either fill the form manually or upload a document (extraction coming soon)</li>
+                        <li>You may upload supporting financial documents alongside the form entries below.</li>
                     </ul>
                 </Card.Body>
             </Card>

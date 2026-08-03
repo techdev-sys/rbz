@@ -13,8 +13,8 @@ public class AppConfig {
         org.springframework.boot.web.client.RestTemplateBuilder builder = new org.springframework.boot.web.client.RestTemplateBuilder();
 
         return builder
-                .setConnectTimeout(java.time.Duration.ofSeconds(30)) // Connection timeout
-                .setReadTimeout(java.time.Duration.ofSeconds(60)) // Read timeout (AI takes time)
+                .connectTimeout(java.time.Duration.ofSeconds(30))
+                .readTimeout(java.time.Duration.ofSeconds(60))
                 .build();
     }
 }

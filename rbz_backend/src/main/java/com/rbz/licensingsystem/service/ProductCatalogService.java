@@ -95,6 +95,7 @@ public class ProductCatalogService {
     /**
      * Update company product details
      */
+    @SuppressWarnings("null")
     public CompanyProduct updateCompanyProduct(Long companyProductId, CompanyProduct updatedDetails) {
         Optional<CompanyProduct> existing = companyProductRepository.findById(companyProductId);
 

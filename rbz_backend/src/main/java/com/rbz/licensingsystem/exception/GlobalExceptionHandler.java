@@ -40,12 +40,17 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(Exception.class)
     public ResponseEntity<Object> handleAllExceptions(Exception ex) {
-        log.error("Unexpected Error: ", ex);
+        // Never expose internal exception details to the client. Log the full
+        // error server-side with a reference ID the user can quote to support.
+        String referenceId = java.util.UUID.randomUUID().toString().substring(0, 8).toUpperCase();
+        log.error("Unexpected Error [ref {}]: ", referenceId, ex);
         Map<String, Object> body = new HashMap<>();
         body.put("timestamp", LocalDateTime.now());
         body.put("status", HttpStatus.INTERNAL_SERVER_ERROR.value());
         body.put("error", "Internal Server Error");
-        body.put("message", ex.getMessage());
+        body.put("message", "Something went wrong on our side. Please try again. "
+                + "If the problem persists, contact support and quote reference " + referenceId + ".");
+        body.put("reference", referenceId);
 
         return new ResponseEntity<>(body, HttpStatus.INTERNAL_SERVER_ERROR);
     }

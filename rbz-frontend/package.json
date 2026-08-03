@@ -9,12 +9,17 @@
     "@testing-library/user-event": "^13.5.0",
     "axios": "^1.13.2",
     "bootstrap": "^5.3.8",
+    "docx": "^9.6.1",
+    "file-saver": "^2.0.5",
+    "http-proxy-middleware": "^3.0.5",
+    "qrcode.react": "^4.2.0",
     "react": "^19.2.3",
     "react-bootstrap": "^2.10.10",
     "react-dom": "^19.2.3",
     "react-router-dom": "^7.13.1",
     "react-scripts": "5.0.1",
-    "web-vitals": "^2.1.4"
+    "web-vitals": "^2.1.4",
+    "xlsx": "^0.18.5"
   },
   "scripts": {
     "start": "react-scripts start",

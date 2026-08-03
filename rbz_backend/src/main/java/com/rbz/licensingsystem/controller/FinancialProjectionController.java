@@ -27,6 +27,7 @@ public class FinancialProjectionController {
     /**
      * Save or update financial projection
      */
+    @SuppressWarnings("null")
     @PostMapping("/save")
     public ResponseEntity<?> saveFinancialProjection(@RequestBody FinancialProjection projection) {
         try {
@@ -38,13 +39,14 @@ public class FinancialProjectionController {
 
             return ResponseEntity.ok(saved);
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body("Error saving financial projection: " + e.getMessage());
+            return ResponseEntity.badRequest().body("Error saving financial projection. Please try again.");
         }
     }
 
     /**
      * Save multiple projections at once
      */
+    @SuppressWarnings("null")
     @PostMapping("/save-all")
     public ResponseEntity<?> saveAllProjections(@RequestBody List<FinancialProjection> projections) {
         try {
@@ -57,7 +59,7 @@ public class FinancialProjectionController {
 
             return ResponseEntity.ok(saved);
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body("Error saving financial projections: " + e.getMessage());
+            return ResponseEntity.badRequest().body("Error saving financial projections. Please try again.");
         }
     }
 
@@ -70,7 +72,7 @@ public class FinancialProjectionController {
             List<FinancialProjection> projections = financialProjectionRepository.findByCompanyId(companyId);
             return ResponseEntity.ok(projections);
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body("Error fetching financial projections: " + e.getMessage());
+            return ResponseEntity.badRequest().body("Error fetching financial projections. Please try again.");
         }
     }
 
@@ -84,7 +86,7 @@ public class FinancialProjectionController {
                     .map(ResponseEntity::ok)
                     .orElse(ResponseEntity.notFound().build());
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body("Error fetching projection: " + e.getMessage());
+            return ResponseEntity.badRequest().body("Error fetching projection. Please try again.");
         }
     }
 
@@ -104,20 +106,21 @@ public class FinancialProjectionController {
                     "filename", file.getOriginalFilename(),
                     "size", file.getSize()));
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body("Error processing document: " + e.getMessage());
+            return ResponseEntity.badRequest().body("Error processing document. Please try again.");
         }
     }
 
     /**
      * Delete a financial projection
      */
+    @SuppressWarnings("null")
     @DeleteMapping("/{id}")
     public ResponseEntity<?> deleteFinancialProjection(@PathVariable Long id) {
         try {
             financialProjectionRepository.deleteById(id);
             return ResponseEntity.ok("Financial projection deleted successfully");
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body("Error deleting financial projection: " + e.getMessage());
+            return ResponseEntity.badRequest().body("Error deleting financial projection. Please try again.");
         }
     }
 }

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { Container, Card, Table, Button, Badge, Form, Modal, Row, Col, Alert, Spinner } from 'react-bootstrap';
-import { getApplicationsByStatus, assignApplication, getPendingReviewReports, reviewReport, recommendReport, approveReport, getCompanyProfile, getExaminers, createExaminer, deleteExaminer, updateExaminer, generateLicenseCode } from '../services/api';
+import { Card, Table, Button, Form, Modal, Row, Col, Spinner } from 'react-bootstrap';
+import { getApplicationsByStatus, assignApplication, getPendingReviewReports, reviewReport, recommendReport, approveReport, directorSignReport, governorSignReport, getCompanyProfile, getExaminers, createExaminer, deleteExaminer, updateExaminer, generateLicenseCode, getLicenseLifecycleDashboard, renewLicense, verifyAuditIntegrity, friendlyError } from '../services/api';
+import './DashboardSenior.css';
 
 const DashboardSenior = ({ onLogout, onReviewApp }) => {
     const [applications, setApplications] = useState([]);
@@ -20,8 +21,9 @@ const DashboardSenior = ({ onLogout, onReviewApp }) => {
     const seniorName = localStorage.getItem('examinerUsername') || 'Deputy Director';
 
     // Tab state
-    const [activeTab, setActiveTab] = useState('pipeline');
+    const [activeTab, setActiveTab] = useState('overview');
     const [pipelineFilter, setPipelineFilter] = useState('all');
+    const [typeFilter, setTypeFilter] = useState('all');
 
     // Examiner management state
     const [examiners, setExaminers] = useState([]);
@@ -37,6 +39,15 @@ const DashboardSenior = ({ onLogout, onReviewApp }) => {
     // License code state
     const [licenseLoading, setLicenseLoading] = useState({});
 
+    // License lifecycle state
+    const [lifecycleDashboard, setLifecycleDashboard] = useState(null);
+    const [lifecycleLoading, setLifecycleLoading] = useState(false);
+    const [renewingId, setRenewingId] = useState(null);
+
+    // Audit integrity state
+    const [auditResult, setAuditResult] = useState(null);
+    const [auditLoading, setAuditLoading] = useState(false);
+
     // Confirmation modal state (for deactivate/reactivate)
     const [confirmModal, setConfirmModal] = useState({ show: false, action: null, examiner: null, loading: false, result: null });
 
@@ -44,7 +55,44 @@ const DashboardSenior = ({ onLogout, onReviewApp }) => {
         loadApplications();
         loadPendingReports();
         loadExaminers();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
+
+    const loadLifecycleDashboard = async () => {
+        setLifecycleLoading(true);
+        try {
+            const res = await getLicenseLifecycleDashboard();
+            setLifecycleDashboard(res.data);
+        } catch (err) {
+            console.error('Failed to load lifecycle dashboard', err);
+        } finally {
+            setLifecycleLoading(false);
+        }
+    };
+
+    const handleRenewLicense = async (companyId) => {
+        setRenewingId(companyId);
+        try {
+            await renewLicense(companyId, seniorName);
+            await loadLifecycleDashboard();
+        } catch (err) {
+            alert(friendlyError(err, 'Renewal failed. Please try again.'));
+        } finally {
+            setRenewingId(null);
+        }
+    };
+
+    const handleVerifyAudit = async () => {
+        setAuditLoading(true);
+        try {
+            const res = await verifyAuditIntegrity();
+            setAuditResult(res.data);
+        } catch (err) {
+            console.error('Audit verification failed', err);
+        } finally {
+            setAuditLoading(false);
+        }
+    };
 
     const loadApplications = async () => {
         setLoading(true);
@@ -111,7 +159,7 @@ const DashboardSenior = ({ onLogout, onReviewApp }) => {
             loadApplications();
             loadExaminers();
         } catch (err) {
-            alert('Failed to assign: ' + err.message);
+            alert(friendlyError(err, 'Failed to assign the application. Please try again.'));
         }
     };
 
@@ -126,6 +174,14 @@ const DashboardSenior = ({ onLogout, onReviewApp }) => {
         }
         setShowReportModal(true);
     };
+
+    const approvalChainLabel = (report) => {
+        const levels = report?.approvalLevelsRequired;
+        if (levels === 5) return 'Bank (5-level: Examiner → Senior → Recommend → Director → Governor → Registrar)';
+        if (levels === 4) return 'DTMFI (4-level: Examiner → Senior → Recommend → Director → Registrar)';
+        return 'MFI (3-level: Examiner → Senior → Recommend → Registrar)';
+    };
+
 
     const handleReportAction = async (action) => {
         if (!selectedReport) return;
@@ -142,14 +198,35 @@ const DashboardSenior = ({ onLogout, onReviewApp }) => {
                     recommendedBy: seniorName,
                     recommendedByDesignation: 'Deputy Director - Bank Supervision'
                 });
-                alert('Report recommended for approval.');
+                const nextMsg = (selectedReport.approvalLevelsRequired || 3) <= 3
+                    ? 'Report recommended — ready for Registrar approval.'
+                    : 'Report recommended — awaiting Director sign-off.';
+                alert(nextMsg);
+            } else if (action === 'DIRECTOR_SIGN') {
+                await directorSignReport(selectedReport.companyId, {
+                    directorSignedBy: seniorName,
+                    directorSignedByDesignation: 'Director - Bank Supervision',
+                    directorComments: approvalComments || 'Reviewed and signed'
+                });
+                const nextMsg = (selectedReport.approvalLevelsRequired || 4) >= 5
+                    ? 'Director sign-off recorded — awaiting Governor approval.'
+                    : 'Director sign-off recorded — ready for Registrar approval.';
+                alert(nextMsg);
+            } else if (action === 'GOVERNOR_SIGN') {
+                await governorSignReport(selectedReport.companyId, {
+                    governorSignedBy: seniorName,
+                    governorSignedByDesignation: 'Deputy Governor - Financial Stability',
+                    governorComments: approvalComments || 'Reviewed and signed by Governor'
+                });
+                alert('Governor sign-off recorded — ready for Registrar final approval.');
             } else if (action === 'APPROVE') {
                 await approveReport(selectedReport.companyId, {
                     finalApprovalStatus: 'APPROVED',
                     approvedBy: seniorName,
+                    approvedByDesignation: 'Registrar of Banks and Financial Institutions',
                     approvalComments: approvalComments || 'Approved'
                 });
-                alert('Application approved.');
+                alert('Application approved. License number generated.');
             } else if (action === 'REJECT') {
                 if (!approvalComments.trim()) {
                     alert('Please provide a reason for rejection.');
@@ -159,6 +236,7 @@ const DashboardSenior = ({ onLogout, onReviewApp }) => {
                 await approveReport(selectedReport.companyId, {
                     finalApprovalStatus: 'REJECTED',
                     approvedBy: seniorName,
+                    approvedByDesignation: 'Registrar of Banks and Financial Institutions',
                     approvalComments: approvalComments
                 });
                 alert('Application rejected.');
@@ -167,7 +245,7 @@ const DashboardSenior = ({ onLogout, onReviewApp }) => {
             loadPendingReports();
             loadApplications();
         } catch (err) {
-            alert('Action failed: ' + (err.response?.data || err.message));
+            alert(friendlyError(err, 'The action could not be completed. Please try again.'));
         } finally {
             setActionLoading(false);
         }
@@ -192,7 +270,7 @@ const DashboardSenior = ({ onLogout, onReviewApp }) => {
             setNewExaminer({ fullName: '', username: '', password: '', email: '', role: 'EXAMINER' });
             loadExaminers();
         } catch (err) {
-            setCreateError(err.response?.data || err.message || 'Failed to create examiner');
+            setCreateError(friendlyError(err, 'Failed to create the examiner account. Please try again.'));
         } finally {
             setCreateLoading(false);
         }
@@ -225,7 +303,7 @@ const DashboardSenior = ({ onLogout, onReviewApp }) => {
             setConfirmModal(prev => ({
                 ...prev,
                 loading: false,
-                result: { success: false, message: `Failed to ${action}: ${err.response?.data || err.message}` }
+                result: { success: false, message: friendlyError(err, `Failed to ${action}. Please try again.`) }
             }));
         }
     };
@@ -242,10 +320,26 @@ const DashboardSenior = ({ onLogout, onReviewApp }) => {
             }
             loadApplications();
         } catch (err) {
-            alert('Failed to generate license: ' + (err.response?.data || err.message));
+            alert(friendlyError(err, 'Failed to generate the licence number. Please try again.'));
         } finally {
             setLicenseLoading(prev => ({ ...prev, [app.id]: false }));
         }
+    };
+
+    const INST_BADGE = {
+        COMMERCIAL_BANK: { label: 'Commercial Bank', bg: '#c5a236', color: '#fff' },
+        DTMFI: { label: 'DTMFI', bg: '#1a6b8a', color: '#fff' },
+        MFI: { label: 'MFI', bg: '#4a7a4e', color: '#fff' },
+    };
+    const instBadge = (institutionType, licenseType) => {
+        let type = institutionType;
+        if (!type) type = (licenseType || '').toLowerCase().includes('deposit') ? 'DTMFI' : 'MFI';
+        const cfg = INST_BADGE[type] || INST_BADGE.MFI;
+        return (
+            <span style={{ display: 'inline-block', padding: '2px 7px', borderRadius: '3px', fontSize: '0.62rem', fontWeight: 700, background: cfg.bg, color: cfg.color, letterSpacing: '0.3px', whiteSpace: 'nowrap' }}>
+                {cfg.label}
+            </span>
+        );
     };
 
     const getStatusStyle = (status) => {
@@ -273,89 +367,142 @@ const DashboardSenior = ({ onLogout, onReviewApp }) => {
     });
 
     const approvedApps = applications.filter(a => a.applicationStatus === 'APPROVED');
+    const submittedApps = applications.filter(a => a.applicationStatus === 'SUBMITTED');
+    const assignedApps = applications.filter(a => a.applicationStatus === 'ASSIGNED');
+    const unassignedApps = submittedApps.filter(a => !a.assignedExaminer);
+    const activeExaminers = examiners.filter(e => e.status === 'ACTIVE' && e.role !== 'SENIOR_BE' && e.role !== 'SENIOR_EXAMINER');
+    const totalWorkload = activeExaminers.reduce((sum, examiner) => sum + Number(examiner.workload || 0), 0);
+    const averageWorkload = activeExaminers.length ? (totalWorkload / activeExaminers.length).toFixed(1) : '0.0';
+    const priorityApplications = [...submittedApps, ...assignedApps].slice(0, 6);
 
     return (
-        <div style={{ background: '#f5f6f8', minHeight: '100vh' }}>
+        <div className="sbe-workspace">
             {/* HEADER */}
-            <div style={{ background: '#003366', borderBottom: '3px solid #c5a236' }}>
-                <Container>
-                    <div className="d-flex justify-content-between align-items-center py-3">
-                        <div className="d-flex align-items-center gap-3">
-                            <img src="/rbz-logo.png" alt="RBZ" style={{ height: '44px', background: 'white', padding: '4px', borderRadius: '4px' }} />
-                            <div className="text-white">
-                                <div style={{ fontSize: '1.1rem', fontWeight: 600, letterSpacing: '0.3px' }}>Senior Examiner Dashboard</div>
-                                <div style={{ fontSize: '0.75rem', opacity: 0.6 }}>Bank Supervision Division — Reserve Bank of Zimbabwe</div>
+            <header className="sbe-header">
+                <div className="sbe-header-inner">
+                    <div className="sbe-header-row">
+                        <div className="sbe-brand">
+                            <img src="/rbz-logo.png" alt="Reserve Bank of Zimbabwe" className="sbe-logo" />
+                            <div>
+                                <div className="sbe-brand-title">Senior Bank Examiner</div>
+                                <div className="sbe-brand-subtitle">Banking Supervision, Surveillance &amp; Financial Stability</div>
                             </div>
                         </div>
-                        <div className="d-flex align-items-center gap-3">
-                            <div style={{ background: 'rgba(255,255,255,0.12)', borderRadius: '6px', padding: '8px 16px', textAlign: 'right' }}>
-                                <div style={{ fontSize: '0.9rem', fontWeight: 600, color: 'white' }}>{seniorName}</div>
-                                <div style={{ fontSize: '0.72rem', color: '#c5a236', fontWeight: 500 }}>Deputy Director — Bank Supervision</div>
+                        <div className="sbe-user-actions">
+                            <div className="sbe-user-card">
+                                <div>{seniorName}</div>
+                                <small>Senior supervisory authority</small>
                             </div>
-                            <div style={{ width: '1px', height: '30px', background: 'rgba(255,255,255,0.2)' }}></div>
-                            <Button size="sm" variant="link" onClick={onLogout} style={{ color: 'rgba(255,255,255,0.8)', textDecoration: 'none', fontSize: '0.8rem', fontWeight: 500 }}>
-                                Sign Out
-                            </Button>
+                            <button className="sbe-signout" onClick={onLogout}>Sign Out</button>
                         </div>
                     </div>
-                </Container>
-            </div>
+                </div>
+            </header>
 
-            <Container className="py-4" style={{ maxWidth: '1100px' }}>
+            <main className="sbe-main">
+                <div className="sbe-page-intro">
+                    <div>
+                        <div className="sbe-kicker">Supervisory control centre</div>
+                        <h1>Institution licensing oversight</h1>
+                        <p>Portfolio supervision, examiner allocation and decision governance.</p>
+                    </div>
+                    <div className="sbe-asof"><span>Operational status</span><strong>{loading ? 'Synchronising' : 'Current'}</strong><small>{new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric' })}</small></div>
+                </div>
+
                 {/* Summary counters — clickable, navigate to relevant tab/filter */}
-                <div className="d-flex gap-4 mb-4">
+                <div className="sbe-summary-grid">
                     {[
-                        { label: 'Pending Review', value: applications.filter(a => a.applicationStatus === 'SUBMITTED').length, tab: 'pipeline', filter: 'pending' },
-                        { label: 'Assigned', value: applications.filter(a => a.applicationStatus === 'ASSIGNED').length, tab: 'pipeline', filter: 'assigned' },
-                        { label: 'Reports Awaiting', value: pendingReports.length, tab: 'reports', filter: null },
-                        { label: 'Licenses Issued', value: applications.filter(a => a.applicationStatus === 'APPROVED').length, tab: 'licenses', filter: null }
+                        { code: '01', label: 'Unassigned cases', value: unassignedApps.length, note: 'Require examiner allocation', tab: 'pipeline', filter: 'pending' },
+                        { code: '02', label: 'Active examinations', value: assignedApps.length, note: 'Currently under assessment', tab: 'pipeline', filter: 'assigned' },
+                        { code: '03', label: 'Decision queue', value: pendingReports.length, note: 'Reports awaiting authority', tab: 'reports', filter: null },
+                        { code: '04', label: 'Licences issued', value: approvedApps.length, note: 'Approved institutional files', tab: 'licenses', filter: null }
                     ].map((stat, i) => {
                         const isActive = activeTab === stat.tab && (stat.filter === null || pipelineFilter === stat.filter);
                         return (
-                            <div
+                            <button
                                 key={i}
+                                className={`sbe-summary-card${isActive ? ' active' : ''}`}
                                 onClick={() => { setActiveTab(stat.tab); if (stat.filter) setPipelineFilter(stat.filter); }}
-                                style={{
-                                    padding: '16px 24px',
-                                    background: isActive ? '#f0f4f8' : 'white',
-                                    borderRadius: '6px',
-                                    border: isActive ? '1px solid #003366' : '1px solid #e0e4e8',
-                                    flex: 1,
-                                    cursor: 'pointer',
-                                    transition: 'all 0.15s'
-                                }}
-                                onMouseEnter={(e) => { e.currentTarget.style.borderColor = '#003366'; e.currentTarget.style.background = '#f0f4f8'; }}
-                                onMouseLeave={(e) => {
-                                    if (!isActive) {
-                                        e.currentTarget.style.borderColor = '#e0e4e8';
-                                        e.currentTarget.style.background = 'white';
-                                    }
-                                }}
                             >
-                                <div style={{ fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.5px', color: '#888', fontWeight: 600 }}>{stat.label}</div>
-                                <div style={{ fontSize: '1.5rem', fontWeight: 700, color: '#003366' }}>{stat.value}</div>
-                            </div>
+                                <span className="sbe-summary-code">{stat.code}</span>
+                                <span className="sbe-summary-label">{stat.label}</span>
+                                <strong>{stat.value}</strong>
+                                <small>{stat.note}</small>
+                            </button>
                         );
                     })}
                 </div>
 
                 {/* Tabs */}
-                <Card style={{ border: '1px solid #e0e4e8', borderRadius: '6px', overflow: 'hidden' }}>
-                    <div style={{ borderBottom: '1px solid #e0e4e8', background: 'white', display: 'flex' }}>
+                <Card className="sbe-console">
+                    <div className="sbe-tabs">
+                        <button style={tabStyle('overview')} onClick={() => setActiveTab('overview')}>Overview</button>
                         <button style={tabStyle('pipeline')} onClick={() => setActiveTab('pipeline')}>Applications</button>
                         <button style={tabStyle('reports')} onClick={() => setActiveTab('reports')}>
                             Reports {pendingReports.length > 0 && <span style={{ background: '#c53030', color: 'white', borderRadius: '8px', padding: '1px 6px', fontSize: '0.65rem', marginLeft: '6px' }}>{pendingReports.length}</span>}
                         </button>
                         <button style={tabStyle('staff')} onClick={() => setActiveTab('staff')}>Examiners</button>
                         <button style={tabStyle('licenses')} onClick={() => setActiveTab('licenses')}>License Codes</button>
+                        <button style={tabStyle('lifecycle')} onClick={() => { setActiveTab('lifecycle'); if (!lifecycleDashboard) loadLifecycleDashboard(); }}>License Lifecycle</button>
+                        <button style={tabStyle('audit')} onClick={() => setActiveTab('audit')}>Audit Log</button>
                     </div>
 
-                    <div style={{ background: 'white' }}>
+                    <div className="sbe-console-body">
+                        {activeTab === 'overview' && (
+                            <div className="sbe-overview">
+                                <section className="sbe-priority-panel">
+                                    <div className="sbe-section-heading">
+                                        <div><span>Priority register</span><h2>Cases requiring supervisory attention</h2></div>
+                                        <button onClick={() => { setActiveTab('pipeline'); setPipelineFilter('pending'); }}>Open application register</button>
+                                    </div>
+                                    {priorityApplications.length === 0 ? (
+                                        <div className="sbe-empty-state"><strong>No immediate case actions</strong><span>New submissions and assigned examinations will appear here.</span></div>
+                                    ) : (
+                                        <div className="sbe-case-list">
+                                            {priorityApplications.map(app => {
+                                                const status = getStatusStyle(app.applicationStatus);
+                                                return (
+                                                    <div className="sbe-case-row" key={app.id}>
+                                                        <div className="sbe-case-reference">RBZ-{String(app.id).padStart(6, '0')}</div>
+                                                        <div className="sbe-case-name"><strong>{app.companyName || 'Unnamed institution'}</strong><span>{app.assignedExaminer || 'Examiner not assigned'}</span></div>
+                                                        <div>{instBadge(app.institutionType, app.licenseType)}</div>
+                                                        <span className="sbe-case-status" style={{ color: status.color, background: status.bg }}>{status.label}</span>
+                                                        <button onClick={() => app.applicationStatus === 'SUBMITTED' ? handleAssignClick(app) : onReviewApp?.(app)}>{app.applicationStatus === 'SUBMITTED' ? 'Allocate' : 'Open'}</button>
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+                                    )}
+                                </section>
+
+                                <div className="sbe-overview-lower">
+                                    <section className="sbe-capacity-panel">
+                                        <div className="sbe-section-heading compact"><div><span>Examiner capacity</span><h2>Supervisory team allocation</h2></div><button onClick={() => setActiveTab('staff')}>Manage staff</button></div>
+                                        <div className="sbe-capacity-summary"><div><span>Active examiners</span><strong>{activeExaminers.length}</strong></div><div><span>Average caseload</span><strong>{averageWorkload}</strong></div></div>
+                                        <div className="sbe-capacity-list">
+                                            {activeExaminers.slice(0, 5).map(examiner => {
+                                                const workload = Number(examiner.workload || 0);
+                                                return <div key={examiner.id}><p><strong>{examiner.fullName}</strong><span>{workload} active case{workload === 1 ? '' : 's'}</span></p><div><i style={{ width: `${Math.min(100, workload * 20)}%` }} /></div></div>;
+                                            })}
+                                            {activeExaminers.length === 0 && <div className="sbe-inline-empty">No active bank examiners are provisioned.</div>}
+                                        </div>
+                                    </section>
+
+                                    <section className="sbe-governance-panel">
+                                        <div className="sbe-section-heading compact"><div><span>Control assurance</span><h2>Governance and decisions</h2></div></div>
+                                        <div className="sbe-governance-item"><span>Reports awaiting authority</span><strong>{pendingReports.length}</strong><button onClick={() => setActiveTab('reports')}>Review queue</button></div>
+                                        <div className="sbe-governance-item"><span>Audit trail integrity</span><strong className={auditResult?.valid === true ? 'ok' : ''}>{auditResult?.valid === true ? 'Verified' : 'Not checked'}</strong><button onClick={handleVerifyAudit} disabled={auditLoading}>{auditLoading ? 'Checking…' : 'Verify now'}</button></div>
+                                        <div className="sbe-governance-note">Senior actions are recorded in the regulatory audit trail and remain attributable to the authenticated officer.</div>
+                                    </section>
+                                </div>
+                            </div>
+                        )}
+
                         {/* ========== PIPELINE TAB ========== */}
                         {activeTab === 'pipeline' && (
                             <div>
                                 {/* Filter pills */}
-                                <div style={{ padding: '12px 16px', borderBottom: '1px solid #e0e4e8', display: 'flex', gap: '8px' }}>
+                                <div style={{ padding: '10px 16px', borderBottom: '1px solid #e0e4e8', display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
                                     {[
                                         { key: 'all', label: 'All' },
                                         { key: 'pending', label: 'Pending Review' },
@@ -379,6 +526,30 @@ const DashboardSenior = ({ onLogout, onReviewApp }) => {
                                             {f.label}
                                         </button>
                                     ))}
+                                    <div style={{ width: '1px', height: '18px', background: '#ddd', margin: '0 4px' }} />
+                                    {[
+                                        { key: 'all', label: 'All Types' },
+                                        { key: 'COMMERCIAL_BANK', label: 'Banks' },
+                                        { key: 'DTMFI', label: 'DTMFI' },
+                                        { key: 'MFI', label: 'MFI' },
+                                    ].map(f => (
+                                        <button
+                                            key={'t-' + f.key}
+                                            onClick={() => setTypeFilter(f.key)}
+                                            style={{
+                                                padding: '4px 14px',
+                                                borderRadius: '14px',
+                                                border: typeFilter === f.key ? '1px solid #c5a236' : '1px solid #ddd',
+                                                background: typeFilter === f.key ? '#c5a236' : 'transparent',
+                                                color: typeFilter === f.key ? 'white' : '#666',
+                                                fontSize: '0.75rem',
+                                                fontWeight: 500,
+                                                cursor: 'pointer'
+                                            }}
+                                        >
+                                            {f.label}
+                                        </button>
+                                    ))}
                                 </div>
 
                                 {loading ? (
@@ -391,11 +562,17 @@ const DashboardSenior = ({ onLogout, onReviewApp }) => {
                                         <div style={{ fontSize: '0.9rem', fontWeight: 500 }}>No applications found</div>
                                     </div>
                                 ) : (() => {
-                                    const filtered = pipelineFilter === 'all' ? applications
+                                    let filtered = pipelineFilter === 'all' ? applications
                                         : pipelineFilter === 'pending' ? applications.filter(a => a.applicationStatus === 'SUBMITTED')
                                             : pipelineFilter === 'assigned' ? applications.filter(a => a.applicationStatus === 'ASSIGNED')
                                                 : pipelineFilter === 'draft' ? applications.filter(a => a.applicationStatus === 'DRAFT')
                                                     : applications;
+                                    if (typeFilter !== 'all') {
+                                        filtered = filtered.filter(a => {
+                                            const t = a.institutionType || ((a.licenseType || '').toLowerCase().includes('deposit') ? 'DTMFI' : 'MFI');
+                                            return t === typeFilter;
+                                        });
+                                    }
                                     return filtered.length === 0 ? (
                                         <div className="text-center py-5" style={{ color: '#888' }}>
                                             <div style={{ fontSize: '0.9rem', fontWeight: 500 }}>No {pipelineFilter} applications</div>
@@ -404,7 +581,7 @@ const DashboardSenior = ({ onLogout, onReviewApp }) => {
                                         <Table hover responsive className="mb-0 align-middle" style={{ fontSize: '0.85rem' }}>
                                             <thead>
                                                 <tr style={{ background: '#fafbfc', borderBottom: '1px solid #e0e4e8' }}>
-                                                    {['Institution', 'License Type', 'Status', 'Assigned To', ''].map(h => (
+                                                    {['Institution', 'Type', 'Status', 'Assigned To', ''].map(h => (
                                                         <th key={h} style={{ fontWeight: 600, color: '#666', fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.5px', padding: '10px 16px' }}>{h}</th>
                                                     ))}
                                                 </tr>
@@ -418,7 +595,7 @@ const DashboardSenior = ({ onLogout, onReviewApp }) => {
                                                                 <div style={{ fontWeight: 600, color: '#1a1a1a' }}>{app.companyName}</div>
                                                                 <div style={{ fontSize: '0.72rem', color: '#999' }}>Ref: {app.id}</div>
                                                             </td>
-                                                            <td style={{ padding: '12px 16px', color: '#555' }}>{app.licenseType || '—'}</td>
+                                                            <td style={{ padding: '12px 16px' }}>{instBadge(app.institutionType, app.licenseType)}</td>
                                                             <td style={{ padding: '12px 16px' }}>
                                                                 <span style={{ display: 'inline-block', padding: '3px 10px', borderRadius: '3px', fontSize: '0.72rem', fontWeight: 600, color: s.color, background: s.bg }}>
                                                                     {s.label}
@@ -635,9 +812,153 @@ const DashboardSenior = ({ onLogout, onReviewApp }) => {
                                 )}
                             </div>
                         )}
+
+                        {/* ========== LICENSE LIFECYCLE TAB ========== */}
+                        {activeTab === 'lifecycle' && (
+                            <div className="p-4">
+                                <div className="d-flex justify-content-between align-items-start mb-3">
+                                    <div>
+                                        <div style={{ fontWeight: 600, fontSize: '0.95rem', color: '#1a1a1a' }}>License Lifecycle Management</div>
+                                        <div style={{ fontSize: '0.75rem', color: '#888' }}>Monitor expiry dates, renewals, and overdue licenses</div>
+                                    </div>
+                                    <Button size="sm" onClick={loadLifecycleDashboard} disabled={lifecycleLoading}
+                                        style={{ background: '#003366', border: 'none', fontSize: '0.75rem', borderRadius: '4px', padding: '6px 14px' }}>
+                                        {lifecycleLoading ? <Spinner size="sm" animation="border" /> : 'Refresh'}
+                                    </Button>
+                                </div>
+
+                                {!lifecycleDashboard && !lifecycleLoading && (
+                                    <div className="text-center py-5" style={{ color: '#888' }}>
+                                        <div style={{ fontSize: '0.9rem' }}>Click Refresh to load license expiry data</div>
+                                    </div>
+                                )}
+
+                                {lifecycleDashboard && (
+                                    <>
+                                        <Row className="mb-3 g-3">
+                                            {[
+                                                { label: 'Critical (< 30 days)', count: lifecycleDashboard.criticalExpiry?.length || 0, color: '#8b1a1a', bg: '#fde8e8' },
+                                                { label: 'Expiring Soon (< 60 days)', count: lifecycleDashboard.upcomingExpiry?.length || 0, color: '#b8860b', bg: '#fef9e7' },
+                                                { label: 'Overdue / Expired', count: lifecycleDashboard.overdue?.length || 0, color: '#5a0000', bg: '#f8d7da' },
+                                                { label: 'Total Alerts', count: lifecycleDashboard.totalAlerts || 0, color: '#003366', bg: '#e8edf2' },
+                                            ].map((s, i) => (
+                                                <Col md={3} key={i}>
+                                                    <div style={{ padding: '14px 18px', background: s.bg, borderRadius: '6px', border: `1px solid ${s.color}22` }}>
+                                                        <div style={{ fontSize: '0.68rem', textTransform: 'uppercase', color: s.color, fontWeight: 600, letterSpacing: '0.5px' }}>{s.label}</div>
+                                                        <div style={{ fontSize: '1.8rem', fontWeight: 700, color: s.color }}>{s.count}</div>
+                                                    </div>
+                                                </Col>
+                                            ))}
+                                        </Row>
+
+                                        {[
+                                            { key: 'overdue', label: 'Overdue / Expired Licenses', color: '#5a0000' },
+                                            { key: 'criticalExpiry', label: 'Critical — Expiring Within 30 Days', color: '#8b1a1a' },
+                                            { key: 'upcomingExpiry', label: 'Upcoming — Expiring Within 60 Days', color: '#b8860b' },
+                                        ].map(group => lifecycleDashboard[group.key]?.length > 0 && (
+                                            <div key={group.key} className="mb-4">
+                                                <div style={{ fontSize: '0.78rem', textTransform: 'uppercase', fontWeight: 600, color: group.color, letterSpacing: '0.5px', marginBottom: '8px' }}>
+                                                    {group.label}
+                                                </div>
+                                                <Table hover responsive className="mb-0 align-middle" style={{ fontSize: '0.83rem' }}>
+                                                    <thead>
+                                                        <tr style={{ background: '#fafbfc' }}>
+                                                            {['Institution', 'License Type', 'License No.', 'Expiry Date', 'Status', ''].map(h => (
+                                                                <th key={h} style={{ fontWeight: 600, color: '#666', fontSize: '0.68rem', textTransform: 'uppercase', letterSpacing: '0.5px', padding: '8px 14px' }}>{h}</th>
+                                                            ))}
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody>
+                                                        {lifecycleDashboard[group.key].map(item => (
+                                                            <tr key={item.companyId} style={{ borderBottom: '1px solid #f0f0f0' }}>
+                                                                <td style={{ padding: '10px 14px', fontWeight: 600 }}>{item.companyName}</td>
+                                                                <td style={{ padding: '10px 14px', color: '#555' }}>{item.licenseType || '—'}</td>
+                                                                <td style={{ padding: '10px 14px', fontFamily: 'monospace', color: '#003366' }}>{item.licenseNumber || '—'}</td>
+                                                                <td style={{ padding: '10px 14px', color: group.key === 'overdue' ? '#8b1a1a' : '#b8860b', fontWeight: 600 }}>
+                                                                    {item.expiryDate ? new Date(item.expiryDate).toLocaleDateString() : '—'}
+                                                                </td>
+                                                                <td style={{ padding: '10px 14px' }}>
+                                                                    <span style={{
+                                                                        padding: '2px 8px', borderRadius: '3px', fontSize: '0.7rem', fontWeight: 600,
+                                                                        color: item.renewalStatus === 'OVERDUE' ? '#5a0000' : item.renewalStatus === 'DUE_SOON' ? '#7a4800' : '#1a5c2e',
+                                                                        background: item.renewalStatus === 'OVERDUE' ? '#f8d7da' : item.renewalStatus === 'DUE_SOON' ? '#fef9e7' : '#e8f5ec'
+                                                                    }}>
+                                                                        {item.renewalStatus || 'CURRENT'}
+                                                                    </span>
+                                                                </td>
+                                                                <td style={{ padding: '10px 14px', textAlign: 'right' }}>
+                                                                    <Button size="sm" onClick={() => handleRenewLicense(item.companyId)} disabled={renewingId === item.companyId}
+                                                                        style={{ background: '#1a5c2e', border: 'none', fontSize: '0.72rem', fontWeight: 500, padding: '3px 12px', borderRadius: '4px' }}>
+                                                                        {renewingId === item.companyId ? <Spinner size="sm" animation="border" /> : 'Renew'}
+                                                                    </Button>
+                                                                </td>
+                                                            </tr>
+                                                        ))}
+                                                    </tbody>
+                                                </Table>
+                                            </div>
+                                        ))}
+
+                                        {lifecycleDashboard.totalAlerts === 0 && (
+                                            <div className="text-center py-4" style={{ color: '#1a5c2e', fontWeight: 500 }}>
+                                                All licenses are current — no renewals required at this time.
+                                            </div>
+                                        )}
+                                    </>
+                                )}
+                            </div>
+                        )}
+
+                        {/* ========== AUDIT LOG TAB ========== */}
+                        {activeTab === 'audit' && (
+                            <div className="p-4">
+                                <div className="d-flex justify-content-between align-items-start mb-3">
+                                    <div>
+                                        <div style={{ fontWeight: 600, fontSize: '0.95rem', color: '#1a1a1a' }}>Audit Log — Hash Chain Integrity</div>
+                                        <div style={{ fontSize: '0.75rem', color: '#888' }}>Verify tamper-evidence of the immutable system activity log</div>
+                                    </div>
+                                    <Button size="sm" onClick={handleVerifyAudit} disabled={auditLoading}
+                                        style={{ background: '#003366', border: 'none', fontSize: '0.75rem', borderRadius: '4px', padding: '6px 14px' }}>
+                                        {auditLoading ? <Spinner size="sm" animation="border" /> : 'Verify Integrity'}
+                                    </Button>
+                                </div>
+
+                                {auditResult && (
+                                    <div style={{
+                                        padding: '14px 20px', borderRadius: '8px', marginBottom: '20px',
+                                        background: auditResult.integrityStatus === 'INTACT' ? '#e8f5ec' : '#fde8e8',
+                                        border: `1px solid ${auditResult.integrityStatus === 'INTACT' ? '#1a5c2e' : '#8b1a1a'}`,
+                                    }}>
+                                        <div style={{ fontWeight: 700, fontSize: '1rem', color: auditResult.integrityStatus === 'INTACT' ? '#1a5c2e' : '#8b1a1a' }}>
+                                            {auditResult.integrityStatus === 'INTACT' ? '✓ Audit Log Integrity: INTACT' : '⚠ Audit Log Integrity: COMPROMISED'}
+                                        </div>
+                                        <div style={{ fontSize: '0.8rem', color: '#555', marginTop: '4px' }}>
+                                            {auditResult.totalEntries} total entries — {auditResult.corruptedEntries} with violations
+                                        </div>
+                                        {auditResult.violations?.length > 0 && (
+                                            <div style={{ marginTop: '10px' }}>
+                                                {auditResult.violations.map((v, i) => (
+                                                    <div key={i} style={{ fontSize: '0.75rem', color: '#8b1a1a', background: '#fff', padding: '4px 8px', borderRadius: '4px', marginBottom: '4px' }}>
+                                                        Entry #{v.entryId} — {v.issue || 'hash mismatch'} — {v.activityType || ''} at {v.timestamp ? new Date(v.timestamp).toLocaleString() : ''}
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
+
+                                {!auditResult && (
+                                    <div className="text-center py-5" style={{ color: '#888' }}>
+                                        <div style={{ fontSize: '0.9rem' }}>Click "Verify Integrity" to check the audit log hash chain</div>
+                                        <div style={{ fontSize: '0.75rem', color: '#aaa', marginTop: '4px' }}>This replays SHA-256 hashes from genesis to confirm no entries have been tampered with</div>
+                                    </div>
+                                )}
+                            </div>
+                        )}
+
                     </div>
                 </Card>
-            </Container>
+            </main>
 
             {/* ASSIGN MODAL */}
             <Modal show={showAssignModal} onHide={() => setShowAssignModal(false)} centered>
@@ -702,7 +1023,7 @@ const DashboardSenior = ({ onLogout, onReviewApp }) => {
                         <Col md={6}>
                             <Form.Group>
                                 <Form.Label style={{ fontWeight: 600, fontSize: '0.75rem', textTransform: 'uppercase', color: '#666' }}>Full Name *</Form.Label>
-                                <Form.Control type="text" placeholder="e.g. P. T. Madamombe" value={newExaminer.fullName}
+                                <Form.Control type="text" placeholder="Examiner's full name" value={newExaminer.fullName}
                                     onChange={(e) => setNewExaminer({ ...newExaminer, fullName: e.target.value })} style={{ fontSize: '0.85rem' }} />
                             </Form.Group>
                         </Col>
@@ -794,6 +1115,16 @@ const DashboardSenior = ({ onLogout, onReviewApp }) => {
                                 </div>
                             )}
 
+                            {/* Approval chain indicator */}
+                            <div style={{ background: '#f0f4f8', borderRadius: '6px', padding: '10px 14px', marginBottom: '12px', fontSize: '0.78rem', color: '#555' }}>
+                                <strong>Approval chain:</strong> {approvalChainLabel(selectedReport)}
+                                {selectedReport.currentApprovalLevel != null && (
+                                    <span className="ms-2" style={{ color: '#003366', fontWeight: 600 }}>
+                                        (Level {selectedReport.currentApprovalLevel} of {selectedReport.approvalLevelsRequired})
+                                    </span>
+                                )}
+                            </div>
+
                             <div style={{ border: '1px solid #e0e4e8', borderRadius: '6px', padding: '16px' }}>
                                 <div style={{ fontWeight: 600, fontSize: '0.85rem', color: '#1a1a1a', marginBottom: '12px' }}>Decision</div>
                                 <Form.Group className="mb-3">
@@ -814,10 +1145,27 @@ const DashboardSenior = ({ onLogout, onReviewApp }) => {
                                             {actionLoading ? <Spinner animation="border" size="sm" /> : 'Recommend'}
                                         </Button>
                                     )}
-                                    <Button size="sm" onClick={() => handleReportAction('APPROVE')} disabled={actionLoading}
-                                        style={{ background: '#1a5c2e', border: 'none', fontSize: '0.78rem', fontWeight: 500, padding: '5px 14px', borderRadius: '4px' }}>
-                                        {actionLoading ? <Spinner animation="border" size="sm" /> : 'Approve'}
-                                    </Button>
+                                    {/* Level 4: Director sign-off (DTMFI + Bank) */}
+                                    {selectedReport.workflowStatus === 'PENDING_DIRECTOR' && (
+                                        <Button size="sm" onClick={() => handleReportAction('DIRECTOR_SIGN')} disabled={actionLoading}
+                                            style={{ background: '#1a4a7a', border: 'none', fontSize: '0.78rem', fontWeight: 500, padding: '5px 14px', borderRadius: '4px' }}>
+                                            {actionLoading ? <Spinner animation="border" size="sm" /> : 'Director Sign-off'}
+                                        </Button>
+                                    )}
+                                    {/* Level 5: Governor sign-off (Bank only) */}
+                                    {selectedReport.workflowStatus === 'PENDING_GOVERNOR' && (
+                                        <Button size="sm" onClick={() => handleReportAction('GOVERNOR_SIGN')} disabled={actionLoading}
+                                            style={{ background: '#4a3570', border: 'none', fontSize: '0.78rem', fontWeight: 500, padding: '5px 14px', borderRadius: '4px' }}>
+                                            {actionLoading ? <Spinner animation="border" size="sm" /> : 'Governor Sign-off'}
+                                        </Button>
+                                    )}
+                                    {/* Final approval — only when chain is complete */}
+                                    {selectedReport.workflowStatus === 'PENDING_APPROVAL' && (
+                                        <Button size="sm" onClick={() => handleReportAction('APPROVE')} disabled={actionLoading}
+                                            style={{ background: '#1a5c2e', border: 'none', fontSize: '0.78rem', fontWeight: 500, padding: '5px 14px', borderRadius: '4px' }}>
+                                            {actionLoading ? <Spinner animation="border" size="sm" /> : 'Final Approval (Registrar)'}
+                                        </Button>
+                                    )}
                                     <Button size="sm" onClick={() => handleReportAction('REJECT')} disabled={actionLoading}
                                         style={{ background: '#8b1a1a', border: 'none', fontSize: '0.78rem', fontWeight: 500, padding: '5px 14px', borderRadius: '4px' }}>
                                         {actionLoading ? <Spinner animation="border" size="sm" /> : 'Reject'}

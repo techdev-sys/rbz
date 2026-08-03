@@ -46,6 +46,7 @@ public class ApplicationFormController {
     /**
      * Get application form by ID
      */
+    @SuppressWarnings("null")
     @GetMapping("/{id}")
     public ResponseEntity<ApplicationForm> getApplicationForm(@PathVariable Long id) {
         ApplicationForm form = applicationFormRepository.findById(id)
@@ -83,6 +84,7 @@ public class ApplicationFormController {
     /**
      * Update application form
      */
+    @SuppressWarnings("null")
     @PutMapping("/{id}")
     public ResponseEntity<ApplicationForm> updateApplicationForm(
             @PathVariable Long id,
@@ -180,6 +182,7 @@ public class ApplicationFormController {
     /**
      * Submit application form (change status to SUBMITTED)
      */
+    @SuppressWarnings("null")
     @PostMapping("/{id}/submit")
     public ResponseEntity<ApplicationForm> submitApplicationForm(@PathVariable Long id) {
         ApplicationForm form = applicationFormRepository.findById(id)
@@ -199,6 +202,7 @@ public class ApplicationFormController {
     /**
      * Delete application form
      */
+    @SuppressWarnings("null")
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> deleteApplicationForm(@PathVariable Long id) {
         applicationFormRepository.deleteById(id);

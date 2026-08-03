@@ -65,7 +65,7 @@ public class DirectorController {
 
         } catch (Exception e) {
             log.error("Server Error in uploadCV", e);
-            return ResponseEntity.internalServerError().body("Server Error: " + e.getMessage());
+            return ResponseEntity.internalServerError().body("Server Error. Please try again.");
         }
     }
 
@@ -86,7 +86,7 @@ public class DirectorController {
 
         } catch (Exception e) {
             log.error("Verification failed", e);
-            return ResponseEntity.internalServerError().body("Verification failed: " + e.getMessage());
+            return ResponseEntity.internalServerError().body("Verification failed. Please try again.");
         }
     }
 
@@ -97,6 +97,7 @@ public class DirectorController {
     }
 
     // === 4. MANUAL SAVE (For adding without CV) ===
+    @SuppressWarnings("null")
     @PostMapping("/save-director")
     public ResponseEntity<?> saveDirector(@RequestBody Director director) {
         Director saved = directorRepository.save(director);

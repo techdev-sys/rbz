@@ -9,12 +9,11 @@
     cursor: pointer;
     z-index: 999;
     transition: all var(--rbz-transition-base);
-    animation: float 3s ease-in-out infinite;
 }
 
 .rbz-circular-progress-float:hover {
-    transform: scale(1.1) translateY(-5px);
-    filter: drop-shadow(0 8px 20px rgba(59, 130, 246, 0.6));
+    transform: scale(1.05);
+    filter: drop-shadow(0 4px 12px rgba(0, 51, 102, 0.2));
 }
 
 .rbz-circular-progress-float svg {
@@ -38,41 +37,7 @@
 }
 
 .rbz-progress-pulse {
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    border-radius: 50%;
-    background: radial-gradient(circle, rgba(59, 130, 246, 0.5) 0%, transparent 70%);
-    animation: pulse 2s ease-in-out infinite;
-    pointer-events: none;
-}
-
-@keyframes pulse {
-
-    0%,
-    100% {
-        opacity: 1;
-        transform: scale(1);
-    }
-
-    50% {
-        opacity: 0.5;
-        transform: scale(1.2);
-    }
-}
-
-@keyframes float {
-
-    0%,
-    100% {
-        transform: translateY(0px);
-    }
-
-    50% {
-        transform: translateY(-10px);
-    }
+    display: none;
 }
 
 /* ========== MODAL BACKDROP ========== */
@@ -183,10 +148,7 @@
 .percentage-value {
     font-size: 48px;
     font-weight: var(--rbz-weight-extrabold);
-    background: var(--rbz-gradient-gold);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
+    color: var(--rbz-navy-dark);
     line-height: 1;
     margin-bottom: 8px;
 }
@@ -218,7 +180,7 @@
     padding: var(--rbz-spacing-lg);
     border-radius: var(--rbz-radius-xl);
     margin-bottom: var(--rbz-spacing-xl);
-    border-left: 4px solid var(--rbz-gold);
+    border-left: 3px solid #D0D5DD;
 }
 
 .stage-label {
@@ -300,7 +262,7 @@
 
 .progress-bar-fill {
     height: 100%;
-    background: var(--rbz-gradient-gold);
+    background: var(--rbz-navy);
     border-radius: var(--rbz-radius-full);
     transition: width var(--rbz-transition-slow);
     display: flex;
@@ -321,7 +283,7 @@
 /* ========== MODAL BUTTON ========== */
 
 .rbz-modal-button {
-    background: var(--rbz-gradient-gold);
+    background: var(--rbz-navy);
     color: var(--rbz-white);
     border: none;
     padding: var(--rbz-spacing-md) var(--rbz-spacing-3xl);
@@ -329,7 +291,7 @@
     font-size: var(--rbz-text-lg);
     font-weight: var(--rbz-weight-semibold);
     cursor: pointer;
-    box-shadow: var(--rbz-shadow-gold);
+    box-shadow: var(--rbz-shadow-md);
     transition: all var(--rbz-transition-base);
     width: 100%;
 }

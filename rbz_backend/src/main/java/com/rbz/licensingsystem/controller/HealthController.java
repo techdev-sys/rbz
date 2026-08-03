@@ -1,6 +1,7 @@
 package com.rbz.licensingsystem.controller;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -11,6 +12,9 @@ import org.springframework.web.client.RestTemplate;
 public class HealthController {
 
     private final RestTemplate restTemplate;
+
+    @Value("${ai.service.url:http://localhost:8000}")
+    private String aiServiceUrl;
 
     @Autowired
     public HealthController(RestTemplate restTemplate) {
@@ -25,7 +29,7 @@ public class HealthController {
     @GetMapping("/test-ai")
     public ResponseEntity<String> testAiConnection() {
         try {
-            String pythonResponse = restTemplate.getForObject("http://localhost:8000/", String.class);
+            String pythonResponse = restTemplate.getForObject(aiServiceUrl + "/", String.class);
             return ResponseEntity.ok("Success! AI says: " + pythonResponse);
         } catch (RestClientException e) {
             return ResponseEntity.ok("Error: Could not talk to Python");

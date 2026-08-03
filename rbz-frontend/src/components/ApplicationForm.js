@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Button, Card, Col, Container, Form, Row, Alert, Table, Modal, Badge } from 'react-bootstrap';
 import { saveApplicationForm, getApplicationFormByCompany } from '../services/api';
-import WorkflowStatusPanel from './WorkflowStatusPanel';
 
 const ApplicationForm = ({ onComplete }) => {
     const [companyId] = useState(localStorage.getItem('currentCompanyId') || "");
@@ -83,7 +82,6 @@ const ApplicationForm = ({ onComplete }) => {
                 } else {
                     // Legacy text support - do nothing or maybe put it in a "Other" committee?
                     // For now, if it's not JSON, we ignore or user can overwrite.
-                    console.warn("Board committees is not JSON:", formData.boardCommittees);
                 }
             } catch (e) {
                 console.error("Failed to parse board committees JSON", e);
@@ -197,7 +195,12 @@ const ApplicationForm = ({ onComplete }) => {
                 const response = await getApplicationFormByCompany(companyId);
                 if (response.data && response.data.id) {
                     const loadedData = response.data;
-                    setFormData(loadedData);
+                    setFormData(prev => ({
+                        ...prev,
+                        ...loadedData,
+                        branches: loadedData.branches || prev.branches || [{ address: '' }],
+                        directors: loadedData.directors || prev.directors || []
+                    }));
 
                     // Parse Board Committees
                     if (loadedData.boardCommittees && loadedData.boardCommittees.trim().startsWith('[')) {
@@ -273,9 +276,7 @@ const ApplicationForm = ({ onComplete }) => {
         const timer = setTimeout(async () => {
             try {
                 await saveApplicationForm(formData);
-                console.log("Auto-save ApplicationForm successful.");
             } catch (error) {
-                console.warn("Auto-save ApplicationForm failed:", error);
             }
         }, 1500); // 1.5 second debounce
 
@@ -389,7 +390,6 @@ const ApplicationForm = ({ onComplete }) => {
 
         try {
             const response = await saveApplicationForm(formData);
-            console.log('Application Form Saved:', response.data);
             alert('✅ Application Form submitted successfully!');
             if (onComplete) onComplete(response.data);
         } catch (error) {
@@ -399,11 +399,11 @@ const ApplicationForm = ({ onComplete }) => {
     };
 
     return (
-        <Container className="mt-4">
+        <Container fluid className="px-4 pt-4 pb-4">
             <Card className="rbz-card shadow-lg animate-fade-in mb-4">
                 <Card.Header className="bg-primary text-white">
-                    <h4 className="mb-0">📋 APPLICATION FORM FOR REGISTRATION AS A CREDIT-ONLY MICROFINANCE INSTITUTION</h4>
-                    <small>In terms of the Microfinance Act [Chapter 24:30]</small>
+                    <h5 className="mb-0">Stage 4: Application Form — Credit-Only Microfinance Institution</h5>
+                    <small style={{ opacity: 0.8 }}>In terms of the Microfinance Act [Chapter 24:29]</small>
                 </Card.Header>
                 <Card.Body>
                     {/* Instructions */}
@@ -470,7 +470,7 @@ const ApplicationForm = ({ onComplete }) => {
                                     <Form.Label><strong>4. Physical Address of the Applicant's Branches - Please disclose all the branches</strong></Form.Label>
                                     <small className="text-muted d-block mb-2">(Or attach a schedule of branches and their addresses)</small>
 
-                                    {formData.branches.map((branch, index) => (
+                                    {(formData.branches || []).map((branch, index) => (
                                         <div key={index} className="d-flex mb-2">
                                             <Form.Control
                                                 type="text"
@@ -672,7 +672,7 @@ const ApplicationForm = ({ onComplete }) => {
                                         </tr>
                                     </thead>
                                     <tbody>
-                                        {formData.directors.map((director, index) => (
+                                        {(formData.directors || []).map((director, index) => (
                                             <tr key={index}>
                                                 <td>
                                                     <Form.Control
@@ -767,7 +767,7 @@ const ApplicationForm = ({ onComplete }) => {
                                                     </td>
                                                 </tr>
                                             ) : (
-                                                committees.map((c, idx) => (
+                                                (committees || []).map((c, idx) => (
                                                     <tr key={c.id || idx}>
                                                         <td>{c.name}</td>
                                                         <td>
@@ -928,7 +928,7 @@ const ApplicationForm = ({ onComplete }) => {
                                         </tr>
                                     </thead>
                                     <tbody>
-                                        {formData.shareholders.map((shareholder, index) => (
+                                        {(formData.shareholders || []).map((shareholder, index) => (
                                             <tr key={index}>
                                                 <td>
                                                     <Form.Control
@@ -1133,13 +1133,13 @@ const ApplicationForm = ({ onComplete }) => {
                         </div>
                     </Form>
 
-                    {/* Workflow Rule Engine Integration */}
-                    <div className="mt-4 mb-4 border-top pt-4">
-                        <WorkflowStatusPanel
-                            companyId={companyId}
-                            currentStep={4}
-                            onStageComplete={onComplete}
-                        />
+                    <div className="d-flex justify-content-end gap-3 mt-4">
+                        <Button variant="secondary" onClick={() => window.history.back()}>
+                            ← Previous Stage
+                        </Button>
+                        <Button variant="primary" onClick={onComplete} size="lg">
+                            Proceed to Stage 5 →
+                        </Button>
                     </div>
                 </Card.Body>
             </Card>
@@ -1186,7 +1186,7 @@ const ApplicationForm = ({ onComplete }) => {
                             <Form.Group className="mb-3">
                                 <Form.Label>Select Members (Min 3)</Form.Label>
                                 <div className="border p-3" style={{ maxHeight: '200px', overflowY: 'auto' }}>
-                                    {formData.directors.length > 0 ? formData.directors.map((director, i) => {
+                                    {formData.directors && formData.directors.length > 0 ? formData.directors.map((director, i) => {
                                         const dirName = director.name || `Director ${i + 1}`;
 
                                         // Check conflict for display

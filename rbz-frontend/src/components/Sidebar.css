@@ -41,7 +41,7 @@
 .rbz-logo-icon {
     width: 48px;
     height: 48px;
-    background: var(--rbz-gradient-navy);
+    background: var(--rbz-navy);
     border-radius: var(--rbz-radius-lg);
     display: flex;
     align-items: center;
@@ -84,7 +84,6 @@
 
 .rbz-sidebar-toggle:hover {
     background: #e0e4e8;
-    transform: scale(1.1);
 }
 
 /* Sidebar Navigation */
@@ -153,7 +152,7 @@
 
 .rbz-nav-link.active {
     background: #003366;
-    border-left: 4px solid #c5a236;
+    border-left: 3px solid #9A7B3F;
     color: white;
     border-radius: 6px;
 }
@@ -279,3 +278,31 @@
         display: none;
     }
 }
+
+/* Institutional navigation treatment */
+.rbz-sidebar { background: #f4f1e8; border-right: 1px solid #c9c1b0; box-shadow: 6px 0 22px rgba(27, 39, 47, 0.1); }
+.rbz-sidebar-header { min-height: 92px; padding: 17px 16px; background: #ece6d9; border-bottom: 3px solid #9a7b3f; }
+.rbz-sidebar-brand { gap: 10px; }
+.rbz-sidebar-logo { width: 46px; height: 46px; flex-shrink: 0; object-fit: contain; padding: 3px; background: #fffdf7; border: 1px solid #cfc6b5; border-radius: 5px; box-shadow: 0 4px 11px rgba(30, 42, 50, 0.12); }
+.rbz-brand-text { min-width: 0; }
+.rbz-brand-text h5 { color: #002244; font-size: 0.82rem; font-weight: 750; line-height: 1.25; }
+.rbz-brand-text small { color: #746b5d; font-size: 0.68rem; letter-spacing: 0.35px; }
+.rbz-sidebar-toggle { background: #f8f5ed; border-color: #c8c0af; border-radius: 4px; color: #003366; }
+.rbz-sidebar-nav { padding: 20px 12px; background: linear-gradient(180deg, #f7f4ec 0%, #f1ede3 100%); }
+.rbz-nav-section-title { margin-bottom: 12px; padding: 0 10px 10px; border-bottom: 1px solid #d6cfbf; color: #756d60; font-size: 0.68rem; font-weight: 750; letter-spacing: 1.1px; }
+.rbz-nav-item { margin-bottom: 5px; }
+.rbz-nav-link { gap: 12px; padding: 10px 11px; background: transparent; border: 1px solid transparent; border-radius: 4px; color: #3e4a53; }
+.rbz-nav-link:hover:not(.disabled) { background: #ebe5d8; border-color: #d3cab7; color: #002244; transform: none; }
+.rbz-nav-link.active { background: #073a6b; border: 1px solid #073a6b; border-left: 4px solid #9a7b3f; border-radius: 4px; color: #fff; box-shadow: 0 6px 14px rgba(0, 51, 102, 0.16); }
+.rbz-nav-link.complete { background: #edf3ea; border-color: #b9ccb9; }
+.rbz-nav-icon { width: 34px; height: 34px; background: #e3e5e2; border: 1px solid #d2d4d1; border-radius: 4px; color: #5c6670; }
+.rbz-nav-link.active .rbz-nav-icon { background: rgba(255, 255, 255, 0.12); border-color: rgba(255, 255, 255, 0.18); color: #fff; }
+.rbz-nav-title { font-size: 0.82rem; font-weight: 650; }
+.rbz-nav-status { color: #b9d5ef; font-size: 0.68rem; }
+.rbz-nav-status.complete { color: #2e6b3c; }
+.rbz-sidebar-footer { padding: 16px; background: #e9e3d6; border-top: 1px solid #cfc6b5; }
+.rbz-progress-text { color: #003366; font-size: 0.88rem; }
+.rbz-progress-bar-mini { height: 6px; background: #d2ccbf; border-radius: 2px; }
+.rbz-progress-fill { background: linear-gradient(90deg, #9a7b3f, #003366); border-radius: 2px; }
+.rbz-sidebar-footer small { color: #766e63 !important; font-size: 0.7rem; }
+.rbz-sidebar.collapsed .rbz-sidebar-header { justify-content: center; }

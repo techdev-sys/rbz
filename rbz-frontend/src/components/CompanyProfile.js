@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { Form, Button, Card, Container, Row, Col, Alert, Spinner } from 'react-bootstrap';
 // IMPORT uploadCertificate HERE
 import { createCompanyProfile, uploadCertificate, getCompanyProfile } from '../services/api';
-import WorkflowStatusPanel from './WorkflowStatusPanel';
 
 const CompanyProfile = ({ onComplete, readOnly }) => {
     const [formData, setFormData] = useState({
@@ -18,13 +17,28 @@ const CompanyProfile = ({ onComplete, readOnly }) => {
         bankers: '',
         lawyers: '',
         auditors: '',
-        licenseType: 'Credit-Only'
+        licenseType: localStorage.getItem('preselectedLicenseType') || 'Credit-Only'
     });
 
-    const [file, setFile] = useState(null);
+    const [file] = useState(null);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
     const [success, setSuccess] = useState(false);
+
+    // Consume the licence type selected on the licence-detail page (if any) — only relevant once
+    useEffect(() => {
+        localStorage.removeItem('preselectedLicenseType');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
+
+    // Pre-populate email from registration session if available
+    useEffect(() => {
+        const pendingEmail = sessionStorage.getItem('pendingEmail');
+        if (pendingEmail && !formData.emailAddress) {
+            setFormData(prev => ({ ...prev, emailAddress: pendingEmail }));
+        }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
 
     // New: Check for existing data on load
     useEffect(() => {
@@ -34,7 +48,6 @@ const CompanyProfile = ({ onComplete, readOnly }) => {
                 try {
                     // Check for invalid mock ID before making request
                     if (currentId.toString().startsWith("MOCK-")) {
-                        console.warn("Detected invalid MOCK ID. Clearing session.");
                         localStorage.removeItem('currentCompanyId');
                         return; // Stop execution
                     }
@@ -92,10 +105,6 @@ const CompanyProfile = ({ onComplete, readOnly }) => {
         }));
     };
 
-    const handleFileChange = (e) => {
-        setFile(e.target.files[0]);
-    };
-
     // --- NEW: Auto-Save functionality ---
     useEffect(() => {
         // Skip auto-save if we are still loading, if it's readOnly, or if we don't have basic required fields
@@ -113,10 +122,8 @@ const CompanyProfile = ({ onComplete, readOnly }) => {
                 if (currentId && !currentId.toString().startsWith("MOCK-")) {
                     // Update existing
                     await createCompanyProfile(payload); // API performs upsert if ID exists or relies on DB
-                    console.log("Auto-save successful.");
                 }
             } catch (err) {
-                console.warn("Auto-save failed in background", err);
             }
         }, 1500); // 1.5 seconds debounce
 
@@ -130,13 +137,18 @@ const CompanyProfile = ({ onComplete, readOnly }) => {
         setSuccess(false);
 
         // 1. Prepare Data with FIXED DATE
+        const licenseTypeToInstitutionType = {
+            'Credit-Only': 'MFI',
+            'Deposit-Taking': 'DTMFI',
+            'Commercial-Bank': 'COMMERCIAL_BANK',
+        };
         const payload = {
             ...formData,
             incorporationDate: formatDateForJava(formData.incorporationDate),
-            applicationDate: formatDateForJava(formData.applicationDate)
+            applicationDate: formatDateForJava(formData.applicationDate),
+            institutionType: licenseTypeToInstitutionType[formData.licenseType] || 'MFI',
         };
 
-        console.log("Sending Payload:", payload);
 
         try {
             // 2. Save Text Data
@@ -145,10 +157,10 @@ const CompanyProfile = ({ onComplete, readOnly }) => {
             if (response.status === 200 || response.status === 201) {
                 const companyId = response.data.id;
                 localStorage.setItem("currentCompanyId", companyId);
+                localStorage.setItem("institutionType", payload.institutionType);
 
                 // 3. UPLOAD FILE
                 if (file) {
-                    console.log("Uploading Certificate...");
                     await uploadCertificate(file, companyId);
                 }
 
@@ -173,14 +185,15 @@ const CompanyProfile = ({ onComplete, readOnly }) => {
     };
 
     const renderField = (name, label, type = "text", as = "input") => (
-        <Form.Group className="mb-3">
-            <Form.Label className="small fw-bold text-muted mb-1">{label}</Form.Label>
+        <Form.Group className="mb-3 rbz-field-group">
+            <Form.Label className="small fw-bold text-muted mb-1 rbz-field-label">{label}</Form.Label>
             {readOnly ? (
                 <div className="p-2 border rounded" style={{ backgroundColor: '#f8f9fa' }}>
                     {formData[name] || <span className="text-muted fst-italic">Not provided</span>}
                 </div>
             ) : (
                 <Form.Control
+                    className="rbz-form-control"
                     as={as}
                     type={type}
                     name={name}
@@ -193,12 +206,12 @@ const CompanyProfile = ({ onComplete, readOnly }) => {
     );
 
     return (
-        <Container fluid className="px-md-4 py-4">
-            <Card className="border-0 shadow-sm" style={{ borderRadius: '12px' }}>
-                <Card.Header className="bg-white border-bottom py-3 d-flex justify-content-between align-items-center">
-                    <h5 className="mb-0 fw-bold" style={{ color: '#003366' }}>Stage 1 Details</h5>
+        <Container fluid className="rbz-stage-container px-4 pt-4 pb-4">
+            <Card className="rbz-stage-card border-0 shadow-sm">
+                <Card.Header className="rbz-stage-card-header bg-primary text-white py-3 d-flex justify-content-between align-items-center">
+                    <h5 className="mb-0 fw-bold text-white">Stage 1: Company Profile</h5>
                     {!readOnly && (
-                        <Button variant="outline-primary" size="sm" onClick={() => setFormData({
+                        <Button variant="outline-light" size="sm" title="Demo Auto-Fill" onClick={() => setFormData({
                             companyName: 'Sunrise Microfinance (Pvt) Ltd',
                             registrationNumber: '1036589A1',
                             incorporationDate: '2025-12-19',
@@ -211,15 +224,15 @@ const CompanyProfile = ({ onComplete, readOnly }) => {
                             lawyers: 'Mawere & Sibanda Legal Practitioners',
                             auditors: 'KPMG Zimbabwe',
                             licenseType: 'Credit-Only'
-                        })} title="Demo Auto-Fill" style={{ borderColor: '#003366', color: '#003366' }}>Auto-Fill Form</Button>
+                        })}>Auto-Fill Form</Button>
                     )}
                 </Card.Header>
-                <Card.Body className="p-4 p-md-5">
+                <Card.Body className="rbz-stage-card-body p-4 p-md-5">
                     {error && <Alert variant="danger" className="border-0 small">{error}</Alert>}
                     {success && <Alert variant="success" className="border-0 small">✅ Company Profile Saved! Moving to Stage 2...</Alert>}
 
                     {!readOnly && formData.companyName && !success && !error && (
-                        <div style={{ padding: '10px 16px', background: '#e8f5ec', borderRadius: '6px', marginBottom: '20px', borderLeft: '3px solid #1a5c2e', fontSize: '0.82rem', color: '#1a5c2e' }}>
+                        <div className="rbz-prefill-notice">
                             <strong>Pre-filled from registration:</strong> Some fields have been populated from your account registration. Please review and complete the remaining details.
                         </div>
                     )}
@@ -297,10 +310,11 @@ const CompanyProfile = ({ onComplete, readOnly }) => {
                                 </Col>
                                 <Col md={6}>
                                     <Form.Group className="mb-3">
-                                        <Form.Label className="small fw-bold text-muted mb-1">License Type</Form.Label>
+                                        <Form.Label className="small fw-bold text-muted mb-1">Institution Type</Form.Label>
                                         <Form.Select name="licenseType" value={formData.licenseType} onChange={handleChange} style={{ borderColor: '#e2e8f0', boxShadow: 'none' }}>
-                                            <option value="Credit-Only">Credit-Only</option>
-                                            <option value="Deposit-Taking">Deposit-Taking</option>
+                                            <option value="Credit-Only">Microfinance Institution (Credit-Only)</option>
+                                            <option value="Deposit-Taking">Deposit-Taking Microfinance Institution</option>
+                                            <option value="Commercial-Bank">Commercial Bank</option>
                                         </Form.Select>
                                     </Form.Group>
                                 </Col>
@@ -311,7 +325,7 @@ const CompanyProfile = ({ onComplete, readOnly }) => {
                             </Row>
 
                             <hr className="my-4 text-muted" />
-                            <h6 className="fw-bold mb-4" style={{ color: '#003366', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Contact Information</h6>
+                            <h6 className="rbz-form-section-title fw-bold mb-4">Contact Information</h6>
                             <Row>
                                 <Col md={3}>{renderField('chiefExecutiveOfficer', 'CEO / Managing Director')}</Col>
                                 <Col md={3}>{renderField('contactPersonName', 'Contact Person Name')}</Col>
@@ -333,7 +347,7 @@ const CompanyProfile = ({ onComplete, readOnly }) => {
                             </div>
 
                             <hr className="my-4 text-muted" />
-                            <h6 className="fw-bold mb-4" style={{ color: '#003366', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Professional Services</h6>
+                            <h6 className="rbz-form-section-title fw-bold mb-4">Professional Services</h6>
                             <Row>
                                 <Col md={4}>{renderField('bankers', 'Bankers')}</Col>
                                 <Col md={4}>{renderField('lawyers', 'Lawyers')}</Col>
@@ -344,7 +358,7 @@ const CompanyProfile = ({ onComplete, readOnly }) => {
 
                             {/* Certificate of Incorporation moved to Stage 2 */}
 
-                            <div className="d-flex justify-content-end mt-4">
+                            <div className="rbz-form-actions d-flex justify-content-end mt-4">
                                 <Button
                                     variant="primary"
                                     type="submit"
@@ -359,17 +373,6 @@ const CompanyProfile = ({ onComplete, readOnly }) => {
                     )}
                 </Card.Body>
             </Card>
-
-            {/* Workflow Rule Engine Integration */}
-            {!readOnly && (
-                <div className="mt-4">
-                    <WorkflowStatusPanel
-                        companyId={localStorage.getItem('currentCompanyId')}
-                        currentStep={1}
-                        onStageComplete={() => onComplete && onComplete(formData)}
-                    />
-                </div>
-            )}
         </Container>
     );
 };

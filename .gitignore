@@ -10,11 +10,11 @@ rbz_backend/target/
 rbz_backend/bin/
 rbz_backend/*.class
 rbz_backend/.settings/
-rbz_backend/.classpath
-rbz_backend/.project
+# rbz_backend/.classpath
+# rbz_backend/.project
 rbz_backend/uploads/
-rbz_backend/application.properties
-# Note: Suggesting to keep a template version of properties
+rbz_backend/src/main/resources/application-prod.properties
+# Note: application.properties is tracked with ${ENV_VAR} placeholders (no hardcoded secrets)
 
 # Frontend (Node/React)
 rbz-frontend/node_modules/
@@ -26,6 +26,8 @@ rbz-frontend/yarn-debug.log*
 rbz-frontend/yarn-error.log*
 
 # AI Service (Python)
+__pycache__/
+*.py[cod]
 rbz_ai/venv/
 rbz_ai/env/
 rbz_ai/__pycache__/
@@ -42,3 +44,5 @@ rbz_ai/.pytest_cache/
 *.jar
 *.war
 /database_verification_*.sql
+*.xlsx
+/RBZ APPLICATION SUBMISSIONS/

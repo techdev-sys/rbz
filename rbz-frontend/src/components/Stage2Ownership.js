@@ -6,14 +6,82 @@ import {
     validateOwnershipCompliance,
     uploadShareholderDocument,
     uploadCompanyOwnershipDocument,
-    deleteShareholder
+    deleteShareholder,
+    friendlyError
 } from '../services/api';
-import WorkflowStatusPanel from './WorkflowStatusPanel';
 
-/**
- * Stage 2: Ownership - Shareholding Structure and Document Upload
- * Allows manual entry of shareholding table and uploading ownership documents
- */
+// Formats a raw numeric string/number with thousand commas: "250000.5" → "250,000.5"
+const addCommas = (raw) => {
+    if (raw === '' || raw == null) return '';
+    const str = String(raw).replace(/,/g, '');
+    const [intPart, decPart] = str.split('.');
+    const formatted = intPart.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+    return decPart !== undefined ? `${formatted}.${decPart}` : formatted;
+};
+
+// Display helper for read-only cells: always shows X,XXX.XX
+const formatCurrency = (val) => {
+    const num = parseFloat(String(val).replace(/,/g, ''));
+    if (isNaN(num)) return '—';
+    const [int, dec = '00'] = num.toFixed(2).split('.');
+    return int.replace(/\B(?=(\d{3})+(?!\d))/g, ',') + '.' + dec;
+};
+
+// Controlled currency input: formats as user types, enforces 2dp on blur
+const CurrencyInput = ({ value, onChange, placeholder, disabled, size }) => {
+    const toDisplay = (v) => {
+        if (v === '' || v == null) return '';
+        return addCommas(String(v).replace(/,/g, ''));
+    };
+
+    const [display, setDisplay] = useState(toDisplay(value));
+
+    useEffect(() => { setDisplay(toDisplay(value)); }, [value]);
+
+    const handleChange = (e) => {
+        const stripped = e.target.value.replace(/[^\d.]/g, '');
+        // Only one decimal point, max 2 decimal digits
+        const parts = stripped.split('.');
+        let clean = parts[0];
+        if (parts.length > 1) clean += '.' + parts.slice(1).join('').slice(0, 2);
+        setDisplay(addCommas(clean));
+        onChange(clean);
+    };
+
+    const handleBlur = () => {
+        const raw = display.replace(/,/g, '');
+        const num = parseFloat(raw);
+        if (!isNaN(num)) {
+            const fixed = num.toFixed(2);
+            const [int, dec] = fixed.split('.');
+            setDisplay(int.replace(/\B(?=(\d{3})+(?!\d))/g, ',') + '.' + dec);
+            onChange(fixed);
+        }
+    };
+
+    return (
+        <InputGroup size={size}>
+            <InputGroup.Text style={{
+                background: '#e8f0fe', borderRight: 'none',
+                color: '#003366', fontWeight: 700, fontSize: '0.8rem', letterSpacing: '0.3px'
+            }}>
+                US$
+            </InputGroup.Text>
+            <Form.Control
+                type="text"
+                inputMode="decimal"
+                value={display}
+                onChange={handleChange}
+                onBlur={handleBlur}
+                placeholder={placeholder || 'e.g. 1,000.00'}
+                disabled={disabled}
+                style={{ borderLeft: 'none', fontVariantNumeric: 'tabular-nums' }}
+            />
+        </InputGroup>
+    );
+};
+
+
 function Stage2Ownership({ companyId, onComplete }) {
     const [shareholders, setShareholders] = useState([]);
     const [newShareholder, setNewShareholder] = useState({
@@ -66,8 +134,16 @@ function Stage2Ownership({ companyId, onComplete }) {
             return;
         }
 
+        const payload = {
+            ...newShareholder,
+            companyId,
+            numberOfShares: newShareholder.numberOfShares !== '' ? parseInt(newShareholder.numberOfShares, 10) : null,
+            amountPaid: newShareholder.amountPaid !== '' ? parseFloat(newShareholder.amountPaid) : null,
+            ownershipPercentage: newShareholder.ownershipPercentage !== '' ? parseFloat(newShareholder.ownershipPercentage) : null,
+        };
+
         try {
-            const response = await addShareholderManual(companyId, { ...newShareholder, companyId });
+            const response = await addShareholderManual(companyId, payload);
 
             setShareholders([...shareholders, response.data]);
             setNewShareholder({
@@ -80,7 +156,7 @@ function Stage2Ownership({ companyId, onComplete }) {
             setAlert({ type: 'success', message: 'Shareholder added successfully!' });
             validateCompliance();
         } catch (error) {
-            setAlert({ type: 'danger', message: 'Error adding shareholder: ' + error.message });
+            setAlert({ type: 'danger', message: friendlyError(error, 'Could not add the shareholder. Please try again.') });
         }
     };
 
@@ -104,8 +180,16 @@ function Stage2Ownership({ companyId, onComplete }) {
             return;
         }
 
+        const editPayload = {
+            ...editShareholder,
+            companyId,
+            numberOfShares: editShareholder.numberOfShares !== '' ? parseInt(editShareholder.numberOfShares, 10) : null,
+            amountPaid: editShareholder.amountPaid !== '' ? parseFloat(editShareholder.amountPaid) : null,
+            ownershipPercentage: editShareholder.ownershipPercentage !== '' ? parseFloat(editShareholder.ownershipPercentage) : null,
+        };
+
         try {
-            const response = await addShareholderManual(companyId, { ...editShareholder, companyId });
+            const response = await addShareholderManual(companyId, editPayload);
 
             const updated = [...shareholders];
             updated[editIndex] = response.data;
@@ -116,7 +200,7 @@ function Stage2Ownership({ companyId, onComplete }) {
             setAlert({ type: 'success', message: 'Shareholder updated successfully!' });
             validateCompliance();
         } catch (error) {
-            setAlert({ type: 'danger', message: 'Error updating shareholder: ' + error.message });
+            setAlert({ type: 'danger', message: friendlyError(error, 'Could not update the shareholder. Please try again.') });
         }
     };
 
@@ -131,7 +215,7 @@ function Stage2Ownership({ companyId, onComplete }) {
             setAlert({ type: 'success', message: 'Shareholder removed successfully!' });
             validateCompliance();
         } catch (error) {
-            setAlert({ type: 'danger', message: 'Error removing shareholder: ' + error.message });
+            setAlert({ type: 'danger', message: friendlyError(error, 'Could not remove the shareholder. Please try again.') });
         }
     };
 
@@ -145,7 +229,7 @@ function Stage2Ownership({ companyId, onComplete }) {
             setAlert({ type: 'success', message: `${documentType} uploaded successfully!` });
             validateCompliance();
         } catch (error) {
-            setAlert({ type: 'danger', message: `Error uploading ${documentType}: ` + error.message });
+            setAlert({ type: 'danger', message: friendlyError(error, `Could not upload ${documentType}. Please try again.`) });
             setUploadProgress(prev => {
                 const updated = { ...prev };
                 delete updated[key];
@@ -162,7 +246,7 @@ function Stage2Ownership({ companyId, onComplete }) {
             setUploadProgress(prev => ({ ...prev, [documentType]: 100 }));
             setAlert({ type: 'success', message: `${documentType} uploaded successfully!` });
         } catch (error) {
-            setAlert({ type: 'danger', message: `Error uploading ${documentType}: ` + error.message });
+            setAlert({ type: 'danger', message: friendlyError(error, `Could not upload ${documentType}. Please try again.`) });
             setUploadProgress(prev => {
                 const updated = { ...prev };
                 delete updated[documentType];
@@ -248,10 +332,10 @@ function Stage2Ownership({ companyId, onComplete }) {
     };
 
     return (
-        <div>
+        <div className="px-4 pt-4 pb-4">
             <Card className="mb-4">
                 <Card.Header className="bg-primary text-white">
-                    <h4 className="mb-0">📊 Stage 2: Ownership Structure</h4>
+                    <h5 className="mb-0">Stage 2: Ownership Structure</h5>
                 </Card.Header>
                 <Card.Body>
                     {alert && (
@@ -307,12 +391,10 @@ function Stage2Ownership({ companyId, onComplete }) {
                                                         />
                                                     </td>
                                                     <td>
-                                                        <Form.Control
+                                                        <CurrencyInput
                                                             size="sm"
-                                                            type="number"
-                                                            step="0.01"
                                                             value={editShareholder.amountPaid}
-                                                            onChange={(e) => setEditShareholder({ ...editShareholder, amountPaid: e.target.value })}
+                                                            onChange={(v) => setEditShareholder({ ...editShareholder, amountPaid: v })}
                                                         />
                                                     </td>
                                                     <td>
@@ -325,15 +407,11 @@ function Stage2Ownership({ companyId, onComplete }) {
                                                         />
                                                     </td>
                                                     <td>
-                                                        <InputGroup size="sm">
-                                                            <InputGroup.Text>$</InputGroup.Text>
-                                                            <Form.Control
-                                                                type="number"
-                                                                step="0.01"
-                                                                value={editShareholder.netWorthStatus}
-                                                                onChange={(e) => setEditShareholder({ ...editShareholder, netWorthStatus: e.target.value })}
-                                                            />
-                                                        </InputGroup>
+                                                        <CurrencyInput
+                                                            size="sm"
+                                                            value={editShareholder.netWorthStatus}
+                                                            onChange={(v) => setEditShareholder({ ...editShareholder, netWorthStatus: v })}
+                                                        />
                                                     </td>
                                                     <td>
                                                         <Button size="sm" variant="success" className="me-2" onClick={handleSaveEdit}>
@@ -359,16 +437,18 @@ function Stage2Ownership({ companyId, onComplete }) {
                                                         {sh.fullName}
                                                     </td>
                                                     <td>{sh.numberOfShares}</td>
-                                                    <td>{parseFloat(sh.amountPaid || 0).toFixed(2)}</td>
+                                                    <td style={{ fontVariantNumeric: 'tabular-nums' }}>
+                                                        {sh.amountPaid ? formatCurrency(sh.amountPaid) : '—'}
+                                                    </td>
                                                     <td>
                                                         <Badge bg={sh.ownershipPercentage > 50 ? 'danger' : 'success'}>
                                                             {sh.ownershipPercentage}%
                                                         </Badge>
                                                     </td>
-                                                    <td>
+                                                    <td style={{ fontVariantNumeric: 'tabular-nums' }}>
                                                         {sh.netWorthStatus && sh.netWorthStatus !== ''
-                                                            ? `$${parseFloat(sh.netWorthStatus).toFixed(2)}`
-                                                            : 'N/A'}
+                                                            ? formatCurrency(sh.netWorthStatus)
+                                                            : '—'}
                                                     </td>
                                                     <td>
                                                         <Button
@@ -403,13 +483,11 @@ function Stage2Ownership({ companyId, onComplete }) {
                                             />
                                         </td>
                                         <td>
-                                            <Form.Control
+                                            <CurrencyInput
                                                 size="sm"
-                                                type="number"
-                                                step="0.01"
-                                                placeholder="Amount"
                                                 value={newShareholder.amountPaid}
-                                                onChange={(e) => setNewShareholder({ ...newShareholder, amountPaid: e.target.value })}
+                                                onChange={(v) => setNewShareholder({ ...newShareholder, amountPaid: v })}
+                                                placeholder="e.g. 5,000.00"
                                             />
                                         </td>
                                         <td>
@@ -423,16 +501,12 @@ function Stage2Ownership({ companyId, onComplete }) {
                                             />
                                         </td>
                                         <td>
-                                            <InputGroup size="sm">
-                                                <InputGroup.Text>$</InputGroup.Text>
-                                                <Form.Control
-                                                    type="number"
-                                                    step="0.01"
-                                                    placeholder="Net Worth"
-                                                    value={newShareholder.netWorthStatus}
-                                                    onChange={(e) => setNewShareholder({ ...newShareholder, netWorthStatus: e.target.value })}
-                                                />
-                                            </InputGroup>
+                                            <CurrencyInput
+                                                size="sm"
+                                                value={newShareholder.netWorthStatus}
+                                                onChange={(v) => setNewShareholder({ ...newShareholder, netWorthStatus: v })}
+                                                placeholder="e.g. 250,000.00"
+                                            />
                                         </td>
                                         <td>
                                             <Button
@@ -448,15 +522,17 @@ function Stage2Ownership({ companyId, onComplete }) {
                                     {/* Totals Row */}
                                     <tr className="table-info fw-bold">
                                         <td>TOTAL</td>
-                                        <td>{shareholders.reduce((sum, sh) => sum + parseInt(sh.numberOfShares || 0), 0)}</td>
-                                        <td>{shareholders.reduce((sum, sh) => sum + parseFloat(sh.amountPaid || 0), 0).toFixed(2)}</td>
+                                        <td>{shareholders.reduce((sum, sh) => sum + parseInt(sh.numberOfShares || 0), 0).toLocaleString()}</td>
+                                        <td style={{ fontVariantNumeric: 'tabular-nums' }}>
+                                            {formatCurrency(shareholders.reduce((sum, sh) => sum + parseFloat(String(sh.amountPaid || 0).replace(/,/g, '')), 0))}
+                                        </td>
                                         <td>
                                             <Badge bg={totalOwnership === 100 ? 'success' : 'warning'}>
                                                 {totalOwnership.toFixed(2)}%
                                             </Badge>
                                         </td>
-                                        <td>
-                                            ${shareholders.reduce((sum, sh) => sum + parseFloat(sh.netWorthStatus || 0), 0).toFixed(2)}
+                                        <td style={{ fontVariantNumeric: 'tabular-nums' }}>
+                                            {formatCurrency(shareholders.reduce((sum, sh) => sum + parseFloat(String(sh.netWorthStatus || 0).replace(/,/g, '')), 0))}
                                         </td>
                                         <td></td>
                                     </tr>
@@ -517,12 +593,16 @@ function Stage2Ownership({ companyId, onComplete }) {
                     )}
 
                     {/* Replaced old Next button with Workflow Engine Sign Off */}
-                    <div className="mt-4">
-                        <WorkflowStatusPanel
-                            companyId={companyId}
-                            currentStep={2}
-                            onStageComplete={onComplete}
-                        />
+                    <div className="d-flex justify-content-between mt-4">
+                        <Button variant="secondary" onClick={() => window.history.back()}>
+                            ← Previous Stage
+                        </Button>
+                        <Button
+                            variant="primary"
+                            onClick={onComplete}
+                        >
+                            Next Stage →
+                        </Button>
                     </div>
                 </Card.Body>
             </Card>

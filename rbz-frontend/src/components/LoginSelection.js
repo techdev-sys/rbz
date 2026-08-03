@@ -1,194 +1,321 @@
 import React, { useState } from 'react';
-import { Card, Container, Row, Col, Button, Spinner, Alert, Form, Modal } from 'react-bootstrap';
-import { authenticateUser } from '../services/api';
+import { Form, Button, Spinner, Alert } from 'react-bootstrap';
+import { authenticateUser, friendlyError } from '../services/api';
 
 const LoginSelection = ({ onSelectRole }) => {
-    const [loadingRole, setLoadingRole] = useState(null);
+    const [username, setUsername] = useState('');
+    const [password, setPassword] = useState('');
+    const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
-    const [showExaminerLogin, setShowExaminerLogin] = useState(false);
-    const [examinerUsername, setExaminerUsername] = useState('');
-    const [examinerPassword, setExaminerPassword] = useState('');
-    const [examinerLoading, setExaminerLoading] = useState(false);
-    const [examinerError, setExaminerError] = useState(null);
+    const [showPassword, setShowPassword] = useState(false);
 
-    const handleRoleClick = async (role) => {
-        if (role === 'examiner') {
-            setShowExaminerLogin(true);
-            setExaminerError(null);
+    const persistStaffSession = (data, role) => {
+        localStorage.setItem('jwtToken', data.token);
+        localStorage.setItem('userRole', role);
+        if (data.fullName) localStorage.setItem('examinerUsername', data.fullName);
+        if (data.employeeId) localStorage.setItem('examinerEmployeeId', data.employeeId);
+        if (data.designation) localStorage.setItem('examinerDesignation', data.designation);
+    };
+
+    const handleSubmit = async (e) => {
+        e.preventDefault();
+        if (!username.trim() || !password) {
+            setError('Username and password are required.');
             return;
         }
-
-        setLoadingRole(role);
+        setLoading(true);
         setError(null);
         try {
-            const response = await authenticateUser(role);
-            if (response.data && response.data.token) {
-                localStorage.setItem('jwtToken', response.data.token);
-                const defaultNames = {
-                    'applicant': 'Applicant',
-                    'senior_be': 'Deputy Director - Bank Supervision'
-                };
-                localStorage.setItem('examinerUsername', defaultNames[role] || role);
-                onSelectRole(role);
-            } else {
-                setError("Invalid authentication response.");
+            const response = await authenticateUser('examiner', username.trim(), password);
+            const data = response.data;
+            if (!data?.token) {
+                setError('Authentication failed. Please try again.');
+                return;
             }
+            // The account itself determines seniority — there is no role picker.
+            const actualRole = data.role === 'SENIOR_BE' || data.role === 'SENIOR_EXAMINER'
+                ? 'senior_be'
+                : 'examiner';
+            persistStaffSession(data, actualRole);
+            onSelectRole(actualRole);
         } catch (err) {
-            setError(err.response?.data || err.message || "Failed to authenticate.");
+            setError(friendlyError(err, 'Sign in failed. Please verify your details and try again.'));
         } finally {
-            setLoadingRole(null);
+            setLoading(false);
         }
     };
 
-    const handleExaminerLogin = async (e) => {
-        e.preventDefault();
-        if (!examinerUsername || !examinerPassword) {
-            setExaminerError('Please enter both username and password');
-            return;
-        }
-
-        setExaminerLoading(true);
-        setExaminerError(null);
-        try {
-            const response = await authenticateUser('examiner', examinerUsername, examinerPassword);
-            if (response.data && response.data.token) {
-                localStorage.setItem('jwtToken', response.data.token);
-                localStorage.setItem('examinerUsername', response.data.fullName || examinerUsername);
-                if (response.data.employeeId) {
-                    localStorage.setItem('examinerEmployeeId', response.data.employeeId);
-                }
-                if (response.data.designation) {
-                    localStorage.setItem('examinerDesignation', response.data.designation);
-                }
-                setShowExaminerLogin(false);
-                onSelectRole('examiner');
-            } else {
-                setExaminerError("Invalid authentication response.");
-            }
-        } catch (err) {
-            const msg = err.response?.data || err.message || "Failed to authenticate.";
-            setExaminerError(typeof msg === 'string' ? msg : JSON.stringify(msg));
-        } finally {
-            setExaminerLoading(false);
-        }
-    };
+    const baseTextStyle = { fontFamily: "'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif" };
 
     return (
-        <Container className="d-flex align-items-center justify-content-center" style={{ minHeight: '100vh', backgroundColor: '#e9ecef' }}>
-            <Card className="shadow-lg animate-fade-in border-0" style={{ width: '100%', maxWidth: '900px' }}>
-                <Card.Header className="text-center bg-white border-0 pt-5 pb-0">
-                    <img src="/rbz-logo.png" alt="RBZ Logo" style={{ height: '100px', marginBottom: '15px' }} />
-                    <h2 style={{ color: '#003366', fontWeight: 'bold' }}>Reserve Bank of Zimbabwe</h2>
-                    <h5 style={{ color: '#D4AF37' }}>Bank Supervision ,Surveillance and Financial Stability Division</h5>
-                    <hr className="w-50 mx-auto mt-4" style={{ borderColor: '#003366' }} />
-                    {error && <Alert variant="danger" className="mt-3">{error}</Alert>}
-                </Card.Header>
-                <Card.Body className="p-5">
-                    <div className="text-center mb-5">
-                        <h4 className="mb-2 text-muted">Licensing & Supervision Portal</h4>
-                        <p className="text-muted small">Select your secure access portal below</p>
+        <div style={{
+            minHeight: '100vh',
+            background:
+                'radial-gradient(circle at 80% 10%, rgba(184,150,110,0.12) 0%, transparent 50%),' +
+                'radial-gradient(circle at 10% 90%, rgba(26,82,118,0.30) 0%, transparent 50%),' +
+                'linear-gradient(160deg, #000d1a 0%, #001a33 50%, #000a17 100%)',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '24px',
+            ...baseTextStyle
+        }}>
+            <div style={{
+                background: 'rgba(220, 38, 38, 0.10)',
+                border: '1px solid rgba(220, 38, 38, 0.40)',
+                borderRadius: '4px',
+                padding: '8px 18px',
+                marginBottom: '28px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '10px',
+            }}>
+                <span style={{
+                    width: '8px',
+                    height: '8px',
+                    background: '#ef4444',
+                    borderRadius: '50%',
+                    boxShadow: '0 0 8px #ef4444',
+                    animation: 'pulse 2s ease-in-out infinite'
+                }} />
+                <span style={{
+                    color: '#fca5a5',
+                    fontSize: '0.7rem',
+                    letterSpacing: '1.5px',
+                    fontWeight: 700,
+                    textTransform: 'uppercase'
+                }}>
+                    Restricted &middot; Authorised Personnel Only
+                </span>
+            </div>
+
+            <div style={{
+                background: 'rgba(255, 255, 255, 0.03)',
+                border: '1px solid rgba(255, 255, 255, 0.08)',
+                borderRadius: '12px',
+                width: '100%',
+                maxWidth: '440px',
+                overflow: 'hidden',
+                boxShadow: '0 30px 70px rgba(0, 0, 0, 0.55), 0 0 0 1px rgba(255,255,255,0.02)',
+            }}>
+                {/* Header */}
+                <div style={{
+                    background: 'rgba(0, 0, 0, 0.25)',
+                    borderBottom: '1px solid rgba(255, 255, 255, 0.06)',
+                    padding: '32px 36px 24px',
+                    textAlign: 'center',
+                }}>
+                    <img
+                        src="/rbz-logo.png"
+                        alt="Reserve Bank of Zimbabwe"
+                        style={{
+                            height: '60px',
+                            background: 'white',
+                            padding: '6px 10px',
+                            borderRadius: '8px',
+                            marginBottom: '18px'
+                        }}
+                    />
+                    <div style={{
+                        color: 'white',
+                        fontWeight: 700,
+                        fontSize: '1rem',
+                        letterSpacing: '0.2px'
+                    }}>
+                        Reserve Bank of Zimbabwe
                     </div>
+                    <div style={{
+                        color: 'rgba(184,150,110,0.95)',
+                        fontSize: '0.72rem',
+                        fontWeight: 700,
+                        letterSpacing: '1.2px',
+                        marginTop: '6px',
+                        textTransform: 'uppercase'
+                    }}>
+                        Bank Supervision &middot; Surveillance &middot; Financial Stability
+                    </div>
+                    <div style={{ marginTop: '14px' }}>
+                        <span style={{
+                            background: 'rgba(184,150,110,0.10)',
+                            border: '1px solid rgba(184,150,110,0.30)',
+                            color: '#B8966E',
+                            fontSize: '0.65rem',
+                            fontWeight: 700,
+                            letterSpacing: '1.5px',
+                            padding: '4px 14px',
+                            borderRadius: '4px',
+                            textTransform: 'uppercase',
+                        }}>
+                            Bank Examiner Portal
+                        </span>
+                    </div>
+                </div>
 
-                    <Row className="g-4">
-                        <Col md={4}>
-                            <Card className="h-100 text-center border-0 shadow-sm grow-hover" onClick={() => handleRoleClick('applicant')} style={{ cursor: 'pointer', transition: 'all 0.3s' }}>
-                                <Card.Body className="d-flex flex-column align-items-center p-4">
-                                    <div className="rounded-circle p-4 mb-3" style={{ backgroundColor: '#eef2f5' }}>
-                                        <span style={{ fontSize: '2.5rem' }}>🏢</span>
-                                    </div>
-                                    <h5 style={{ color: '#003366' }}>Applicant Portal</h5>
-                                    <p className="small text-muted mb-4">
-                                        Submit new license applications, track status, and upload required documents.
-                                    </p>
-                                    <Button variant="outline-primary" className="w-100 mt-auto" style={{ borderColor: '#003366', color: '#003366' }}>
-                                        {loadingRole === 'applicant' ? <Spinner animation="border" size="sm" /> : 'Login as Applicant'}
-                                    </Button>
-                                </Card.Body>
-                            </Card>
-                        </Col>
+                {/* Form */}
+                <div style={{ padding: '32px 36px 36px' }}>
+                    {error && (
+                        <Alert
+                            variant="danger"
+                            dismissible
+                            onClose={() => setError(null)}
+                            style={{
+                                fontSize: '0.82rem',
+                                background: 'rgba(220, 38, 38, 0.12)',
+                                border: '1px solid rgba(220, 38, 38, 0.30)',
+                                color: '#fca5a5',
+                                borderRadius: '6px',
+                                padding: '10px 14px'
+                            }}
+                        >
+                            {error}
+                        </Alert>
+                    )}
 
-                        <Col md={4}>
-                            <Card className="h-100 text-center border-0 shadow-sm grow-hover" onClick={() => handleRoleClick('senior_be')} style={{ cursor: 'pointer', transition: 'all 0.3s' }}>
-                                <Card.Body className="d-flex flex-column align-items-center p-4">
-                                    <div className="rounded-circle p-4 mb-3" style={{ backgroundColor: '#fff8e1' }}>
-                                        <span style={{ fontSize: '2.5rem' }}>👔</span>
-                                    </div>
-                                    <h5 style={{ color: '#003366' }}>Senior Examiner</h5>
-                                    <p className="small text-muted mb-4">
-                                        Oversee application pipeline, delegate tasks, and monitor examiner workloads.
-                                    </p>
-                                    <Button variant="outline-warning" className="w-100 mt-auto" style={{ borderColor: '#D4AF37', color: '#856404' }}>
-                                        {loadingRole === 'senior_be' ? <Spinner animation="border" size="sm" /> : 'Login as Senior BE'}
-                                    </Button>
-                                </Card.Body>
-                            </Card>
-                        </Col>
-
-                        <Col md={4}>
-                            <Card className="h-100 text-center border-0 shadow-sm grow-hover" onClick={() => handleRoleClick('examiner')} style={{ cursor: 'pointer', transition: 'all 0.3s' }}>
-                                <Card.Body className="d-flex flex-column align-items-center p-4">
-                                    <div className="rounded-circle p-4 mb-3" style={{ backgroundColor: '#e8f5e9' }}>
-                                        <span style={{ fontSize: '2.5rem' }}>🕵️‍♂️</span>
-                                    </div>
-                                    <h5 style={{ color: '#003366' }}>Bank Examiner</h5>
-                                    <p className="small text-muted mb-4">
-                                        Perform detailed evaluations, conduct due diligence, and generate reports.
-                                    </p>
-                                    <Button variant="outline-success" className="w-100 mt-auto" style={{ borderColor: '#28a745', color: '#28a745' }}>Login as Examiner</Button>
-                                </Card.Body>
-                            </Card>
-                        </Col>
-                    </Row>
-                </Card.Body>
-                <Card.Footer className="text-center text-white py-3" style={{ backgroundColor: '#003366' }}>
-                    <small>&copy; 2026 Reserve Bank of Zimbabwe. Unauthorized access is prohibited.</small>
-                </Card.Footer>
-            </Card>
-
-            {/* Examiner Login Modal */}
-            <Modal show={showExaminerLogin} onHide={() => setShowExaminerLogin(false)} centered>
-                <Modal.Header closeButton style={{ background: 'linear-gradient(135deg, #003366 0%, #004488 100%)', color: 'white' }}>
-                    <Modal.Title className="d-flex align-items-center gap-2">
-                        <span>🕵️‍♂️</span> Bank Examiner Login
-                    </Modal.Title>
-                </Modal.Header>
-                <Modal.Body className="p-4">
-                    {examinerError && <Alert variant="danger" className="mb-3">{examinerError}</Alert>}
-                    <p className="text-muted small mb-3">
-                        Enter the credentials provided by the Senior Bank Examiner.
-                    </p>
-                    <Form onSubmit={handleExaminerLogin}>
+                    <Form onSubmit={handleSubmit} noValidate>
+                        {/* Username */}
                         <Form.Group className="mb-3">
-                            <Form.Label className="fw-bold small text-uppercase">Username</Form.Label>
+                            <Form.Label style={{
+                                fontSize: '0.65rem',
+                                textTransform: 'uppercase',
+                                letterSpacing: '1.2px',
+                                color: 'rgba(255, 255, 255, 0.4)',
+                                fontWeight: 700
+                            }}>
+                                RBZ Email Address
+                            </Form.Label>
                             <Form.Control
                                 type="text"
-                                placeholder="Enter your username"
-                                value={examinerUsername}
-                                onChange={(e) => setExaminerUsername(e.target.value)}
+                                placeholder="e.g. s.chinogara@rbz.co.zw"
+                                value={username}
+                                onChange={e => setUsername(e.target.value)}
                                 autoFocus
-                                className="border-2"
+                                autoComplete="username"
+                                style={{
+                                    background: 'rgba(255, 255, 255, 0.04)',
+                                    border: '1px solid rgba(255, 255, 255, 0.12)',
+                                    color: 'white',
+                                    fontSize: '0.9rem',
+                                    padding: '11px 14px',
+                                    borderRadius: '6px',
+                                }}
                             />
                         </Form.Group>
+
+                        {/* Password */}
                         <Form.Group className="mb-4">
-                            <Form.Label className="fw-bold small text-uppercase">Password</Form.Label>
-                            <Form.Control
-                                type="password"
-                                placeholder="Enter your password"
-                                value={examinerPassword}
-                                onChange={(e) => setExaminerPassword(e.target.value)}
-                                className="border-2"
-                            />
+                            <Form.Label style={{
+                                fontSize: '0.65rem',
+                                textTransform: 'uppercase',
+                                letterSpacing: '1.2px',
+                                color: 'rgba(255, 255, 255, 0.4)',
+                                fontWeight: 700
+                            }}>
+                                Password
+                            </Form.Label>
+                            <div style={{ position: 'relative' }}>
+                                <Form.Control
+                                    type={showPassword ? 'text' : 'password'}
+                                    placeholder="Enter your password"
+                                    value={password}
+                                    onChange={e => setPassword(e.target.value)}
+                                    autoComplete="current-password"
+                                    style={{
+                                        background: 'rgba(255, 255, 255, 0.04)',
+                                        border: '1px solid rgba(255, 255, 255, 0.12)',
+                                        color: 'white',
+                                        fontSize: '0.9rem',
+                                        padding: '11px 50px 11px 14px',
+                                        borderRadius: '6px',
+                                    }}
+                                />
+                                <button
+                                    type="button"
+                                    onClick={() => setShowPassword(p => !p)}
+                                    style={{
+                                        position: 'absolute',
+                                        right: '12px',
+                                        top: '50%',
+                                        transform: 'translateY(-50%)',
+                                        background: 'none',
+                                        border: 'none',
+                                        color: 'rgba(255, 255, 255, 0.4)',
+                                        fontSize: '0.72rem',
+                                        cursor: 'pointer',
+                                        padding: 0,
+                                        fontWeight: 700,
+                                        letterSpacing: '0.5px'
+                                    }}
+                                >
+                                    {showPassword ? 'HIDE' : 'SHOW'}
+                                </button>
+                            </div>
                         </Form.Group>
-                        <Button type="submit" className="w-100 fw-bold py-2" style={{ backgroundColor: '#28a745', border: 'none' }} disabled={examinerLoading}>
-                            {examinerLoading ? <Spinner animation="border" size="sm" /> : '🔐 Sign In'}
+
+                        <Button
+                            type="submit"
+                            disabled={loading}
+                            style={{
+                                width: '100%',
+                                background: loading
+                                    ? 'rgba(184,150,110,0.5)'
+                                    : 'linear-gradient(135deg, #B8966E 0%, #9A7B3F 100%)',
+                                border: 'none',
+                                color: '#001a33',
+                                fontWeight: 700,
+                                fontSize: '0.9rem',
+                                padding: '12px',
+                                borderRadius: '6px',
+                                letterSpacing: '0.5px',
+                                transition: 'all 0.15s',
+                            }}
+                        >
+                            {loading
+                                ? <Spinner size="sm" animation="border" />
+                                : 'Sign in to Bank Examiner Portal'}
                         </Button>
                     </Form>
-                    <div className="mt-3 p-3 bg-light rounded small text-muted">
-                        <strong>Note:</strong> Login credentials are created by the Senior Bank Examiner. Contact your supervisor if you don't have an account.
-                    </div>
-                </Modal.Body>
-            </Modal>
-        </Container>
+                </div>
+            </div>
+
+            {/* Footer */}
+            <div style={{ marginTop: '28px', textAlign: 'center', maxWidth: '440px' }}>
+                <div style={{
+                    color: 'rgba(255, 255, 255, 0.25)',
+                    fontSize: '0.7rem',
+                    letterSpacing: '0.3px',
+                    lineHeight: 1.6
+                }}>
+                    This system is for authorised Reserve Bank of Zimbabwe personnel only.
+                    Unauthorised access is a criminal offence under the Reserve Bank of Zimbabwe
+                    Act [Chapter 22:15] and the Computer Crime and Cybercrime Act [Chapter 9:23].
+                    All activity is logged and monitored.
+                </div>
+                <a
+                    href="/"
+                    style={{
+                        display: 'inline-block',
+                        marginTop: '18px',
+                        color: 'rgba(255, 255, 255, 0.35)',
+                        fontSize: '0.72rem',
+                        textDecoration: 'none',
+                        fontWeight: 500,
+                        letterSpacing: '0.3px'
+                    }}
+                    onMouseEnter={e => e.currentTarget.style.color = 'rgba(255,255,255,0.65)'}
+                    onMouseLeave={e => e.currentTarget.style.color = 'rgba(255,255,255,0.35)'}
+                >
+                    ← Return to public portal
+                </a>
+            </div>
+
+            <style>{`
+                @keyframes pulse {
+                    0%, 100% { opacity: 1; }
+                    50%      { opacity: 0.4; }
+                }
+            `}</style>
+        </div>
     );
 };
 

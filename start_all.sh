@@ -1,7 +1,20 @@
 #!/bin/bash
 
+# Export required environment variables for the Java backend
+export JWT_SECRET="1234567890123456789012345678901234567890123456789012345678901234"
+export CORS_ORIGINS="http://localhost:3000"
+export PII_ENCRYPTION_KEY="0123456789abcdef0123456789abcdef"
+
 echo "🐘 Ensuring PostgreSQL database is running..."
 sudo systemctl start postgresql
+
+echo "==============================================="
+echo "🧹 Cleaning up any existing services..."
+echo "==============================================="
+fuser -k 3000/tcp 2>/dev/null
+fuser -k 8000/tcp 2>/dev/null
+fuser -k 8080/tcp 2>/dev/null
+sleep 2
 
 echo "==============================================="
 echo "🚀 Starting all RBZ project services..."

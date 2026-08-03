@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Form, Button, Card, Container, Row, Col, Alert, Spinner, Table } from 'react-bootstrap';
 import { saveCompliance, getCompliance } from '../services/api';
 
-const ComplianceDocumentation = ({ onComplete }) => {
+const ComplianceDocumentation = ({ onComplete, readOnly = false }) => {
     const [formData, setFormData] = useState({
         companyId: localStorage.getItem('currentCompanyId'),
         hasCreditPolicyManual: 'NO',
@@ -44,10 +44,14 @@ const ComplianceDocumentation = ({ onComplete }) => {
         try {
             const response = await getCompliance(companyId);
             if (response.data) {
-                setFormData(response.data);
+                setFormData(prev => ({
+                    ...prev,
+                    ...Object.fromEntries(
+                        Object.entries(response.data).map(([k, v]) => [k, v ?? prev[k] ?? ''])
+                    )
+                }));
             }
         } catch (err) {
-            console.log('No existing compliance data');
         }
     };
 
@@ -84,7 +88,7 @@ const ComplianceDocumentation = ({ onComplete }) => {
         <Container className="mt-4">
             <Card className="shadow-sm">
                 <Card.Header as="h4" className="bg-primary text-white">
-                    Stage 8: Compliance & Documentation
+                    Stage 9: Compliance Declaration
                 </Card.Header>
                 <Card.Body>
                     {error && <Alert variant="danger">{error}</Alert>}
@@ -93,6 +97,8 @@ const ComplianceDocumentation = ({ onComplete }) => {
                     <Alert variant="info">
                         <strong>Template Reference:</strong> This captures the <strong>COMPLIANCE</strong> section of the MFI Evaluation Report.
                     </Alert>
+
+                    {readOnly && <Alert variant="info">Read-only mode — examiner view.</Alert>}
 
                     <Form onSubmit={handleSubmit}>
                         <h5 className="mt-3 mb-3">Policy Manuals</h5>
@@ -104,6 +110,7 @@ const ComplianceDocumentation = ({ onComplete }) => {
                                         name="hasCreditPolicyManual"
                                         value={formData.hasCreditPolicyManual}
                                         onChange={handleChange}
+                                        disabled={readOnly}
                                     >
                                         <option value="NO">NO</option>
                                         <option value="YES">YES</option>
@@ -416,14 +423,16 @@ const ComplianceDocumentation = ({ onComplete }) => {
                             />
                         </Form.Group>
 
-                        <div className="d-flex justify-content-between mt-4">
-                            <Button variant="secondary" onClick={() => window.history.back()}>
-                                ← Previous Stage
-                            </Button>
-                            <Button variant="primary" type="submit" disabled={loading} size="lg">
-                                {loading ? <Spinner animation="border" size="sm" /> : 'Save & Continue →'}
-                            </Button>
-                        </div>
+                        {!readOnly && (
+                            <div className="d-flex justify-content-between mt-4">
+                                <Button variant="secondary" onClick={() => window.history.back()}>
+                                    ← Previous Stage
+                                </Button>
+                                <Button variant="primary" type="submit" disabled={loading} size="lg">
+                                    {loading ? <Spinner animation="border" size="sm" /> : 'Save & Continue →'}
+                                </Button>
+                            </div>
+                        )}
                     </Form>
                 </Card.Body>
             </Card>

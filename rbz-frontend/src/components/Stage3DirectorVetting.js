@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Card, Table, Button, Form, Badge, Alert, ProgressBar, Row, Col } from 'react-bootstrap';
 import axios from 'axios';
+import { friendlyError } from '../services/api';
 
 /**
  * Stage 3: Corporate Governance - Director Vetting
@@ -24,7 +25,7 @@ function Stage3DirectorVetting({ companyId, onComplete }) {
 
     const fetchDirectors = async () => {
         try {
-            const response = await axios.get(`http://localhost:8080/api/director-vetting/company/${companyId}`);
+            const response = await axios.get(`/api/director-vetting/company/${companyId}`);
             setDirectors(response.data);
         } catch (error) {
             console.error('Error fetching directors:', error);
@@ -34,7 +35,7 @@ function Stage3DirectorVetting({ companyId, onComplete }) {
 
     const fetchVettingSummary = async () => {
         try {
-            const response = await axios.get(`http://localhost:8080/api/director-vetting/company/${companyId}/summary`);
+            const response = await axios.get(`/api/director-vetting/company/${companyId}/summary`);
             setVettingSummary(response.data);
         } catch (error) {
             console.error('Error fetching vetting summary:', error);
@@ -54,7 +55,7 @@ function Stage3DirectorVetting({ companyId, onComplete }) {
         try {
             setUploadProgress(50);
             const response = await axios.post(
-                `http://localhost:8080/api/director-vetting/${directorId}/upload-id`,
+                `/api/director-vetting/${directorId}/upload-id`,
                 formData,
                 {
                     headers: { 'Content-Type': 'multipart/form-data' },
@@ -79,7 +80,7 @@ function Stage3DirectorVetting({ companyId, onComplete }) {
             }, 2000);
         } catch (error) {
             setUploadProgress(0);
-            setAlert({ type: 'danger', message: 'Error uploading document: ' + (error.response?.data?.message || error.message) });
+            setAlert({ type: 'danger', message: friendlyError(error, 'Could not upload the document. Please try again.') });
         }
     };
 

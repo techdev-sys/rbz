@@ -5,6 +5,7 @@ import com.rbz.licensingsystem.model.RuleEvaluationLog;
 import com.rbz.licensingsystem.model.enums.ApplicationStage;
 import com.rbz.licensingsystem.repository.CompanyProfileRepository;
 import com.rbz.licensingsystem.repository.RuleEvaluationLogRepository;
+import com.rbz.licensingsystem.service.CompanyAccessService;
 import com.rbz.licensingsystem.service.WorkflowEngineService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -22,12 +23,15 @@ public class WorkflowController {
     private final WorkflowEngineService workflowEngineService;
     private final CompanyProfileRepository companyProfileRepository;
     private final RuleEvaluationLogRepository evaluationLogRepository;
+    private final CompanyAccessService companyAccessService;
 
+    @SuppressWarnings("null")
     @GetMapping("/{companyId}/status")
     public ResponseEntity<Map<String, Object>> getWorkflowStatus(@PathVariable Long companyId) {
+        companyAccessService.assertCanAccessCompany(companyId);
         CompanyProfile company = companyProfileRepository.findById(companyId)
                 .orElseThrow(() -> new RuntimeException("Company not found"));
-        
+
         List<RuleEvaluationLog> logs = evaluationLogRepository.findByCompanyId(companyId);
 
         Map<String, Object> response = new HashMap<>();
@@ -38,22 +42,37 @@ public class WorkflowController {
         return ResponseEntity.ok(response);
     }
 
+    @PostMapping("/{companyId}/evaluate/all")
+    public ResponseEntity<List<RuleEvaluationLog>> evaluateAllStages(
+            @PathVariable Long companyId,
+            @RequestParam(defaultValue = "system") String evaluatedBy) {
+
+        companyAccessService.assertCanAccessCompany(companyId);
+        List<RuleEvaluationLog> results = workflowEngineService.evaluateAllStages(companyId, evaluatedBy);
+        return ResponseEntity.ok(results);
+    }
+
     @PostMapping("/{companyId}/evaluate/{stage}")
     public ResponseEntity<List<RuleEvaluationLog>> evaluateStage(
-            @PathVariable Long companyId, 
+            @PathVariable Long companyId,
             @PathVariable ApplicationStage stage,
             @RequestParam(defaultValue = "system") String evaluatedBy) {
-        
+
+        companyAccessService.assertCanAccessCompany(companyId);
         List<RuleEvaluationLog> results = workflowEngineService.evaluateStage(companyId, stage, evaluatedBy);
         return ResponseEntity.ok(results);
     }
 
     @PostMapping("/{companyId}/advance/{stage}")
     public ResponseEntity<String> advanceStage(
-            @PathVariable Long companyId, 
+            @PathVariable Long companyId,
             @PathVariable ApplicationStage stage,
             @RequestParam(defaultValue = "system") String user) {
-        
+
+        if (!companyAccessService.isStaff()) {
+            throw new org.springframework.security.access.AccessDeniedException(
+                    "Only an examiner or senior BE may advance a workflow stage.");
+        }
         workflowEngineService.advanceStage(companyId, stage, user);
         return ResponseEntity.ok("Stage advanced successfully");
     }

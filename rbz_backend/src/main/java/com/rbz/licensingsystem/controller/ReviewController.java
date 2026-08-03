@@ -3,6 +3,7 @@ package com.rbz.licensingsystem.controller;
 import com.rbz.licensingsystem.model.StageReview;
 import com.rbz.licensingsystem.repository.StageReviewRepository;
 import com.rbz.licensingsystem.service.LearningService;
+import com.rbz.licensingsystem.service.NotificationService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
@@ -21,6 +22,9 @@ public class ReviewController {
 
     @Autowired
     private LearningService learningService;
+
+    @Autowired
+    private NotificationService notificationService;
 
     @GetMapping("/{companyId}")
     public List<StageReview> getReviews(@PathVariable Long companyId) {
@@ -51,6 +55,10 @@ public class ReviewController {
                     "STAGE_REVIEW",
                     "Stage " + review.getStageName() + " marked as " + review.getStatus(),
                     "Comment: " + review.getExaminerComment());
+
+            if ("FLAGGED".equals(review.getStatus())) {
+                notificationService.stageFlagged(review.getCompanyId(), review.getStageName(), review.getExaminerComment());
+            }
 
             return ResponseEntity.ok(saved);
         } catch (Exception e) {

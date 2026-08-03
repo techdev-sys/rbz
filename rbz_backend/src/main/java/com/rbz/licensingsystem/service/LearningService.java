@@ -4,11 +4,9 @@ import com.rbz.licensingsystem.model.SystemActivityLog;
 import com.rbz.licensingsystem.repository.SystemActivityLogRepository;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.lang.NonNull;
 import org.springframework.scheduling.annotation.Async;
-import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
-import java.util.List;
+import org.springframework.transaction.annotation.Transactional;
 
 @Service
 @Slf4j
@@ -17,42 +15,34 @@ public class LearningService {
     @Autowired
     private SystemActivityLogRepository logRepository;
 
-    /**
-     * Captures an event for current or future AI training.
-     * This is the "Learning" part that runs without interrupting the user.
-     */
     @Async
-    public void captureEvent(String role, String name, @NonNull Long companyId, String type, String detail,
-            String dataJson) {
-        SystemActivityLog activityLog = new SystemActivityLog();
-        activityLog.setActorRole(role);
-        activityLog.setActorName(name);
-        activityLog.setCompanyId(companyId);
-        activityLog.setActivityType(type);
-        activityLog.setDetail(detail);
-        activityLog.setDataSnapshot(dataJson);
+    @Transactional
+    public void captureEvent(String role, String name, Long companyId, String type, String detail, String dataJson) {
+        try {
+            // Chain to previous entry for tamper-evidence
+            String previousHash = logRepository.findTopByOrderByIdDesc()
+                    .map(SystemActivityLog::getEntryHash)
+                    .orElse("GENESIS");
 
-        logRepository.save(activityLog);
-        log.info("[AI LEARNING] Captured '{}' event for company {}. Learning cycle initialized.", type, companyId);
+            SystemActivityLog entry = new SystemActivityLog();
+            entry.setActorRole(role != null ? role : "SYSTEM");
+            entry.setActorName(name != null ? name : "SYSTEM");
+            entry.setCompanyId(companyId);
+            entry.setActivityType(type);
+            entry.setDetail(detail);
+            entry.setDataSnapshot(dataJson);
+            entry.setPreviousHash(previousHash);
+
+            logRepository.save(entry);
+        } catch (Exception e) {
+            log.error("Failed to capture audit event [{}] for company {}: {}", type, companyId, e.getMessage());
+        }
     }
 
-    /**
-     * Idle background process that "processes" logs to simulate ML model weight
-     * updates.
-     */
-    @Scheduled(fixedDelay = 60000) // Every minute simulate a learning cycle
-    public void backgroundLearningCycle() {
-        List<SystemActivityLog> unprocessedLogs = logRepository.findAll();
-        if (unprocessedLogs.isEmpty())
-            return;
-
-        log.info("[AI BRAIN] Idle Learning Cycle Started. Processing {} data points...", unprocessedLogs.size());
-
-        try {
-            Thread.sleep(100);
-            log.info("[AI BRAIN] Feature extraction completed. Hidden patterns updated in neural database.");
-        } catch (InterruptedException e) {
-            log.error("Learning cycle interrupted", e);
-        }
+    // Overload for system events not tied to a company
+    @Async
+    @Transactional
+    public void captureSystemEvent(String role, String actorName, String type, String detail) {
+        captureEvent(role, actorName, null, type, detail, "");
     }
 }

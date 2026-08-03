@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Card, Table, Button, Form, Modal, Alert, Badge, Row, Col, Spinner } from 'react-bootstrap';
 import axios from 'axios';
+import { friendlyError } from '../services/api';
 
 /**
  * Stage 4: Board Committees
@@ -41,7 +42,7 @@ function Stage4BoardCommittees({ companyId, onComplete }) {
     const fetchCommittees = async () => {
         setLoading(true);
         try {
-            const response = await axios.get(`http://localhost:8080/api/board-committee/company/${companyId}`);
+            const response = await axios.get(`/api/board-committee/company/${companyId}`);
             const fetchedCommittees = response.data;
             setCommittees(fetchedCommittees);
 
@@ -49,7 +50,7 @@ function Stage4BoardCommittees({ companyId, onComplete }) {
             const membersMap = {};
             for (const committee of fetchedCommittees) {
                 try {
-                    const membersRes = await axios.get(`http://localhost:8080/api/board-committee/${committee.id}/members`);
+                    const membersRes = await axios.get(`/api/board-committee/${committee.id}/members`);
                     membersMap[committee.id] = membersRes.data.map(m => m.directorId);
                 } catch (err) {
                     console.error(`Error fetching members for committee ${committee.id}`, err);
@@ -68,7 +69,7 @@ function Stage4BoardCommittees({ companyId, onComplete }) {
 
     const fetchDirectors = async () => {
         try {
-            const response = await axios.get(`http://localhost:8080/api/director-vetting/company/${companyId}`);
+            const response = await axios.get(`/api/director-vetting/company/${companyId}`);
             setDirectors(response.data);
         } catch (error) {
             console.error('Error fetching directors:', error);
@@ -188,13 +189,13 @@ function Stage4BoardCommittees({ companyId, onComplete }) {
 
             if (editingCommittee) {
                 // Delete the old one first to avoid duplicates/conflicts
-                await axios.delete(`http://localhost:8080/api/board-committee/${editingCommittee.id}`);
+                await axios.delete(`/api/board-committee/${editingCommittee.id}`);
                 // Note: Ideally we update, but based on current API structure and requirement speed, replace is safer to ensure clean state
             }
 
             // Create committee
             const committeeResponse = await axios.post(
-                `http://localhost:8080/api/board-committee/${companyId}/create`,
+                `/api/board-committee/${companyId}/create`,
                 {
                     committeeName: formData.committeeName,
                     termsOfReference: formData.termsOfReference, // Send TOR text
@@ -208,7 +209,7 @@ function Stage4BoardCommittees({ companyId, onComplete }) {
             for (const directorId of formData.selectedMembers) {
                 const director = directors.find(d => d.id === directorId);
                 await axios.post(
-                    `http://localhost:8080/api/board-committee/${committeeId}/add-member`,
+                    `/api/board-committee/${committeeId}/add-member`,
                     {
                         directorId: directorId,
                         memberName: director.fullName,
@@ -220,7 +221,7 @@ function Stage4BoardCommittees({ companyId, onComplete }) {
             // Set chairperson (always set at end)
             const chairperson = directors.find(d => d.id === formData.chairpersonId);
             await axios.put(
-                `http://localhost:8080/api/board-committee/${committeeId}/set-chairperson/${formData.chairpersonId}`,
+                `/api/board-committee/${committeeId}/set-chairperson/${formData.chairpersonId}`,
                 null,
                 { params: { chairpersonName: chairperson.fullName } }
             );
@@ -229,7 +230,7 @@ function Stage4BoardCommittees({ companyId, onComplete }) {
             handleCloseModal();
             fetchCommittees();
         } catch (error) {
-            setAlert({ type: 'danger', message: 'Error saving committee: ' + (error.response?.data?.message || error.message) });
+            setAlert({ type: 'danger', message: friendlyError(error, 'Could not save the committee. Please try again.') });
         }
     };
 
@@ -244,7 +245,7 @@ function Stage4BoardCommittees({ companyId, onComplete }) {
 
         try {
             await axios.post(
-                `http://localhost:8080/api/board-committee/${committeeId}/upload-tor`,
+                `/api/board-committee/${committeeId}/upload-tor`,
                 formData,
                 { headers: { 'Content-Type': 'multipart/form-data' } }
             );
@@ -253,18 +254,18 @@ function Stage4BoardCommittees({ companyId, onComplete }) {
             setTorFile(null);
             fetchCommittees();
         } catch (error) {
-            setAlert({ type: 'danger', message: 'Error uploading TOR: ' + (error.response?.data?.message || error.message) });
+            setAlert({ type: 'danger', message: friendlyError(error, 'Could not upload the Terms of Reference. Please try again.') });
         }
     };
 
     const handleDeleteCommittee = async (committeeId) => {
         if (window.confirm('Are you sure you want to delete this committee?')) {
             try {
-                await axios.delete(`http://localhost:8080/api/board-committee/${committeeId}`);
+                await axios.delete(`/api/board-committee/${committeeId}`);
                 setAlert({ type: 'success', message: 'Committee deleted successfully!' });
                 fetchCommittees();
             } catch (error) {
-                setAlert({ type: 'danger', message: 'Error deleting committee: ' + error.message });
+                setAlert({ type: 'danger', message: friendlyError(error, 'Could not delete the committee. Please try again.') });
             }
         }
     };

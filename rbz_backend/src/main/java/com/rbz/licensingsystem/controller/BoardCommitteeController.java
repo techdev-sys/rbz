@@ -4,7 +4,6 @@ import com.rbz.licensingsystem.model.BoardCommittee;
 import com.rbz.licensingsystem.model.CommitteeMember;
 import com.rbz.licensingsystem.repository.BoardCommitteeRepository;
 import com.rbz.licensingsystem.repository.CommitteeMemberRepository;
-import com.rbz.licensingsystem.repository.DirectorRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -32,9 +31,6 @@ public class BoardCommitteeController {
 
     @Autowired
     private CommitteeMemberRepository memberRepository;
-
-    @Autowired
-    private DirectorRepository directorRepository;
 
     private static final String UPLOAD_DIR = "uploads/committee-documents/";
 
@@ -79,6 +75,7 @@ public class BoardCommitteeController {
     /**
      * Set chairperson for a committee
      */
+    @SuppressWarnings("null")
     @PutMapping("/{committeeId}/set-chairperson/{directorId}")
     public ResponseEntity<BoardCommittee> setChairperson(
             @PathVariable Long committeeId,
@@ -115,6 +112,7 @@ public class BoardCommitteeController {
     /**
      * Upload Terms of Reference document
      */
+    @SuppressWarnings("null")
     @PostMapping("/{committeeId}/upload-tor")
     public ResponseEntity<BoardCommittee> uploadTermsOfReference(
             @PathVariable Long committeeId,
@@ -176,6 +174,7 @@ public class BoardCommitteeController {
     /**
      * Delete a committee
      */
+    @SuppressWarnings("null")
     @DeleteMapping("/{committeeId}")
     public ResponseEntity<String> deleteCommittee(@PathVariable Long committeeId) {
         // Delete all members first

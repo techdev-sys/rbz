@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Form, Card, Container, Row, Col, Alert } from 'react-bootstrap';
+import { Form, Card, Container, Row, Col, Alert, Button } from 'react-bootstrap';
 import { saveCapitalStructure, getCapitalStructure } from '../services/api';
-import WorkflowStatusPanel from './WorkflowStatusPanel';
 
 const CapitalStructure = ({ onComplete }) => {
     const [formData, setFormData] = useState({
@@ -47,11 +46,15 @@ const CapitalStructure = ({ onComplete }) => {
         try {
             const response = await getCapitalStructure(companyId);
             if (response.data) {
-                setFormData(response.data);
+                setFormData(prev => ({
+                    ...prev,
+                    ...Object.fromEntries(
+                        Object.entries(response.data).map(([k, v]) => [k, v ?? prev[k] ?? ''])
+                    )
+                }));
             }
         } catch (err) {
             // No existing data, that's okay
-            console.log('No existing capital structure data');
         }
     };
 
@@ -122,9 +125,7 @@ const CapitalStructure = ({ onComplete }) => {
         const timer = setTimeout(async () => {
             try {
                 await saveCapitalStructure(formData);
-                console.log("Auto-save CapitalStructure successful.");
             } catch (error) {
-                console.warn("Auto-save CapitalStructure failed:", error);
             }
         }, 1500); // 1.5 second debounce
 
@@ -147,10 +148,10 @@ const CapitalStructure = ({ onComplete }) => {
     };
 
     return (
-        <Container className="mt-4">
+        <Container fluid className="px-4 pt-4 pb-4">
             <Card className="shadow-sm">
-                <Card.Header as="h4" className="bg-primary text-white">
-                    Stage 5: Detailed Capital Structure & Financial Breakdown
+                <Card.Header className="bg-primary text-white">
+                    <h5 className="mb-0">Stage 5: Capital Structure & Financial Breakdown</h5>
                 </Card.Header>
                 <Card.Body>
                     {error && <Alert variant="danger">{error}</Alert>}
@@ -384,18 +385,17 @@ const CapitalStructure = ({ onComplete }) => {
                             </Col>
                         </Row>
 
-                        {/* Replaced Save & Continue with Workflow Engine Panel */}
+                        <div className="d-flex justify-content-between mt-4">
+                            <Button variant="secondary" onClick={() => window.history.back()}>
+                                ← Previous Stage
+                            </Button>
+                            <Button variant="primary" type="submit">
+                                Proceed to Stage 6 →
+                            </Button>
+                        </div>
                     </Form>
                 </Card.Body>
             </Card>
-
-            <div className="mt-4 mb-4">
-                <WorkflowStatusPanel
-                    companyId={formData.companyId}
-                    currentStep={5}
-                    onStageComplete={onComplete}
-                />
-            </div>
         </Container>
     );
 };

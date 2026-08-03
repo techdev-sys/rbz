@@ -1,11 +1,11 @@
 import React, { useState } from 'react';
 import { Container, Card, Form, Button, Alert, Row, Col, Spinner } from 'react-bootstrap';
-import { createCompanyProfile } from '../services/api';
+import { createCompanyProfile, friendlyError } from '../services/api';
 
-const ApplicantRegistration = ({ onRegistered, onCancel }) => {
+const ApplicantRegistration = ({ initialLicenseType, onRegistered, onCancel }) => {
     const [formData, setFormData] = useState({
         companyName: '',
-        licenseType: 'Credit-Only Microfinance',
+        licenseType: initialLicenseType || 'Credit-Only Microfinance',
         contactPersonName: '',
         emailAddress: '',
         contactTelephone: '',
@@ -53,7 +53,7 @@ const ApplicantRegistration = ({ onRegistered, onCancel }) => {
             onRegistered(response.data.id);
         } catch (err) {
             console.error(err);
-            setError("Registration failed. Please check your connection or contact support. Error: " + (err.response?.data?.message || err.message));
+            setError(friendlyError(err, 'Registration could not be completed. Please try again or contact the Reserve Bank licensing office.'));
         } finally {
             setLoading(false);
         }
@@ -88,7 +88,7 @@ const ApplicantRegistration = ({ onRegistered, onCancel }) => {
                         <Col md={6} className="border-end pe-4" style={{ borderColor: '#e9ecef' }}>
                             <h5 style={{ color: '#003366' }} className="mb-3">Minimum Requirements Checklist</h5>
                             <p className="text-muted small">
-                                Before commencing your application, please ensure you are in possession of the following documents as per the <strong>Microfinance Act [Chapter 24:30]</strong>.
+                                Before commencing your application, please ensure you are in possession of the following documents as per the <strong>Microfinance Act [Chapter 24:29]</strong>.
                             </p>
 
                             <div className="bg-light p-3 rounded mb-4" style={{ borderLeft: '4px solid #D4AF37' }}>
@@ -134,9 +134,11 @@ const ApplicantRegistration = ({ onRegistered, onCancel }) => {
                                         value={formData.licenseType}
                                         onChange={handleChange}
                                         style={{ borderLeft: '3px solid #003366' }}
+                                        disabled={!!initialLicenseType}
                                     >
                                         <option value="Credit-Only Microfinance">Credit-Only Microfinance (Non-Deposit Taking)</option>
                                         <option value="Deposit-Taking Microfinance">Deposit-Taking Microfinance</option>
+                                        <option value="Commercial Bank">Commercial Bank</option>
                                     </Form.Select>
                                 </Form.Group>
 

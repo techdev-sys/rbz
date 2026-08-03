@@ -1,6 +1,7 @@
 package com.rbz.licensingsystem.model;
 
 import jakarta.persistence.*;
+import com.rbz.licensingsystem.config.PiiEncryptionConverter;
 
 @Entity
 public class Director {
@@ -22,6 +23,9 @@ public class Director {
     private String status;
 
     private String nationality;
+
+    @Convert(converter = PiiEncryptionConverter.class)
+    @Column(columnDefinition = "TEXT")
     private String idNumber;
 
     // === FIX 1: CHANGE THIS TO BOOLEAN ===
@@ -61,37 +65,31 @@ public class Director {
     private String policeClearanceSubmitted; // YES/NO
     private String probityFormSubmitted; // YES/NO
 
-    public String getLetterOfUndertakingSubmitted() {
-        return letterOfUndertakingSubmitted;
-    }
+    // --- Persisted document verification results (from DirectorVetting.js AI checks) ---
+    private boolean affidavitVerified;
+    private boolean netWorthVerified;
+    private boolean policeClearanceVerified;
+    private boolean taxClearanceVerified;
+    private boolean certifiedIdVerified;
 
-    public void setLetterOfUndertakingSubmitted(String letterOfUndertakingSubmitted) {
-        this.letterOfUndertakingSubmitted = letterOfUndertakingSubmitted;
-    }
-
-    public String getNetWorthStatementSubmitted() {
-        return netWorthStatementSubmitted;
-    }
-
-    public void setNetWorthStatementSubmitted(String netWorthStatementSubmitted) {
-        this.netWorthStatementSubmitted = netWorthStatementSubmitted;
-    }
-
-    public String getPoliceClearanceSubmitted() {
-        return policeClearanceSubmitted;
-    }
-
-    public void setPoliceClearanceSubmitted(String policeClearanceSubmitted) {
-        this.policeClearanceSubmitted = policeClearanceSubmitted;
-    }
-
-    public String getProbityFormSubmitted() {
-        return probityFormSubmitted;
-    }
-
-    public void setProbityFormSubmitted(String probityFormSubmitted) {
-        this.probityFormSubmitted = probityFormSubmitted;
-    }
+    public String getLetterOfUndertakingSubmitted() { return letterOfUndertakingSubmitted; }
+    public void setLetterOfUndertakingSubmitted(String v) { this.letterOfUndertakingSubmitted = v; }
+    public String getNetWorthStatementSubmitted() { return netWorthStatementSubmitted; }
+    public void setNetWorthStatementSubmitted(String v) { this.netWorthStatementSubmitted = v; }
+    public String getPoliceClearanceSubmitted() { return policeClearanceSubmitted; }
+    public void setPoliceClearanceSubmitted(String v) { this.policeClearanceSubmitted = v; }
+    public String getProbityFormSubmitted() { return probityFormSubmitted; }
+    public void setProbityFormSubmitted(String v) { this.probityFormSubmitted = v; }
+    public boolean isAffidavitVerified() { return affidavitVerified; }
+    public void setAffidavitVerified(boolean v) { this.affidavitVerified = v; }
+    public boolean isNetWorthVerified() { return netWorthVerified; }
+    public void setNetWorthVerified(boolean v) { this.netWorthVerified = v; }
+    public boolean isPoliceClearanceVerified() { return policeClearanceVerified; }
+    public void setPoliceClearanceVerified(boolean v) { this.policeClearanceVerified = v; }
+    public boolean isTaxClearanceVerified() { return taxClearanceVerified; }
+    public void setTaxClearanceVerified(boolean v) { this.taxClearanceVerified = v; }
+    public boolean isCertifiedIdVerified() { return certifiedIdVerified; }
+    public void setCertifiedIdVerified(boolean v) { this.certifiedIdVerified = v; }
 
     // --- Getters and Setters ---
 

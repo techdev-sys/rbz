@@ -1,6 +1,8 @@
 package com.rbz.licensingsystem.controller;
 
+import com.rbz.licensingsystem.model.CompanyDocument;
 import com.rbz.licensingsystem.model.Shareholder;
+import com.rbz.licensingsystem.repository.CompanyDocumentRepository;
 import com.rbz.licensingsystem.repository.ShareholderRepository;
 import com.rbz.licensingsystem.service.LearningService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -18,6 +20,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 /**
  * REST Controller for Ownership Management
@@ -27,278 +30,366 @@ import java.util.UUID;
 @RequestMapping("/api/ownership")
 public class OwnershipController {
 
-    @Autowired
-    private ShareholderRepository shareholderRepository;
+        @Autowired
+        private ShareholderRepository shareholderRepository;
 
-    @Autowired
-    private LearningService learningService;
+        @Autowired
+        private CompanyDocumentRepository companyDocumentRepository;
 
-    private static final String UPLOAD_DIR = "uploads/ownership-documents/";
+        @Autowired
+        private LearningService learningService;
 
-    /**
-     * Get shareholding structure for a company
-     */
-    @GetMapping("/shareholding-structure/{companyId}")
-    public ResponseEntity<List<Shareholder>> getShareholdingStructure(@PathVariable Long companyId) {
-        List<Shareholder> shareholders = shareholderRepository.findByCompanyId(companyId);
-        return ResponseEntity.ok(shareholders);
-    }
+        private static final String UPLOAD_DIR = "uploads/ownership-documents/";
 
-    /**
-     * Manually add/update shareholder entry
-     */
-    @PostMapping("/manual-entry/{companyId}")
-    public ResponseEntity<Shareholder> manualShareholderEntry(
-            @PathVariable Long companyId,
-            @RequestBody Shareholder shareholder) {
-
-        shareholder.setCompanyId(companyId);
-        shareholder.setShareholdingTableManuallyEntered(true);
-        Shareholder saved = shareholderRepository.save(shareholder);
-
-        learningService.captureEvent("APPLICANT", "SEC_OFFICER", companyId,
-                "SHAREHOLDER_ADD", "Added/Updated shareholder: " + saved.getFullName(), saved.toString());
-
-        return ResponseEntity.ok(saved);
-    }
-
-    /**
-     * Delete a shareholder entry
-     */
-    @DeleteMapping("/shareholders/{id}")
-    public ResponseEntity<?> deleteShareholder(@PathVariable Long id) {
-        return shareholderRepository.findById(id).map(shareholder -> {
-            shareholderRepository.delete(shareholder);
-            learningService.captureEvent("APPLICANT", "SEC_OFFICER", shareholder.getCompanyId(),
-                    "SHAREHOLDER_REMOVE", "Removed shareholder: " + shareholder.getFullName(), "");
-            return ResponseEntity.ok().build();
-        }).orElse(ResponseEntity.notFound().build());
-    }
-
-    /**
-     * Upload application form for a shareholder
-     */
-    @PostMapping("/{shareholderId}/upload-application-form")
-    public ResponseEntity<Shareholder> uploadApplicationForm(
-            @PathVariable Long shareholderId,
-            @RequestParam("file") MultipartFile file) throws IOException {
-
-        String path = saveFile(file, "application-form");
-        Shareholder shareholder = shareholderRepository.findById(shareholderId)
-                .orElseThrow(() -> new RuntimeException("Shareholder not found"));
-
-        shareholder.setApplicationFormPath(path);
-        Shareholder updated = shareholderRepository.save(shareholder);
-
-        learningService.captureEvent("APPLICANT", "SEC_OFFICER", updated.getCompanyId(),
-                "DOC_UPLOAD", "Uploaded Application Form for " + updated.getFullName(), "");
-
-        return ResponseEntity.ok(updated);
-    }
-
-    /**
-     * Upload application letter
-     */
-    @PostMapping("/{shareholderId}/upload-application-letter")
-    public ResponseEntity<Shareholder> uploadApplicationLetter(
-            @PathVariable Long shareholderId,
-            @RequestParam("file") MultipartFile file) throws IOException {
-
-        String path = saveFile(file, "application-letter");
-        Shareholder shareholder = shareholderRepository.findById(shareholderId)
-                .orElseThrow(() -> new RuntimeException("Shareholder not found"));
-
-        shareholder.setApplicationLetterPath(path);
-        Shareholder updated = shareholderRepository.save(shareholder);
-
-        learningService.captureEvent("APPLICANT", "SEC_OFFICER", updated.getCompanyId(),
-                "DOC_UPLOAD", "Uploaded Application Letter for " + updated.getFullName(), "");
-
-        return ResponseEntity.ok(updated);
-    }
-
-    /**
-     * Upload application fee receipt
-     */
-    @PostMapping("/{companyId}/upload-application-fee")
-    public ResponseEntity<Map<String, String>> uploadApplicationFee(
-            @PathVariable Long companyId,
-            @RequestParam("file") MultipartFile file) throws IOException {
-
-        String path = saveFile(file, "application-fee");
-
-        learningService.captureEvent("APPLICANT", "SEC_OFFICER", companyId,
-                "DOC_UPLOAD", "Uploaded Application Fee Receipt", "");
-
-        Map<String, String> response = new HashMap<>();
-        response.put("path", path);
-        response.put("message", "Application fee receipt uploaded successfully");
-        return ResponseEntity.ok(response);
-    }
-
-    /**
-     * Upload net worth statement for a shareholder
-     */
-    @PostMapping("/{shareholderId}/upload-net-worth-statement")
-    public ResponseEntity<Shareholder> uploadNetWorthStatement(
-            @PathVariable Long shareholderId,
-            @RequestParam("file") MultipartFile file) throws IOException {
-
-        String path = saveFile(file, "net-worth-statement");
-        Shareholder shareholder = shareholderRepository.findById(shareholderId)
-                .orElseThrow(() -> new RuntimeException("Shareholder not found"));
-
-        shareholder.setNetWorthStatementPath(path);
-        Shareholder updated = shareholderRepository.save(shareholder);
-
-        learningService.captureEvent("APPLICANT", "SEC_OFFICER", updated.getCompanyId(),
-                "DOC_UPLOAD", "Uploaded Net Worth Statement for " + updated.getFullName(), "");
-
-        return ResponseEntity.ok(updated);
-    }
-
-    /**
-     * Upload generic company-level document
-     */
-    @PostMapping("/{companyId}/upload-document/{docType}")
-    public ResponseEntity<Map<String, String>> uploadCompanyDocumentGeneric(
-            @PathVariable Long companyId,
-            @PathVariable String docType,
-            @RequestParam("file") MultipartFile file) throws IOException {
-
-        String path = saveFile(file, docType);
-
-        learningService.captureEvent("APPLICANT", "SEC_OFFICER", companyId,
-                "DOC_UPLOAD", "Uploaded " + docType, "");
-
-        Map<String, String> response = new HashMap<>();
-        response.put("path", path);
-        response.put("message", docType + " uploaded successfully");
-        return ResponseEntity.ok(response);
-    }
-
-    /**
-     * Upload generic shareholder document
-     */
-    @PostMapping("/{shareholderId}/upload-shareholder-document/{docType}")
-    public ResponseEntity<Shareholder> uploadShareholderDocumentGeneric(
-            @PathVariable Long shareholderId,
-            @PathVariable String docType,
-            @RequestParam("file") MultipartFile file) throws IOException {
-
-        String path = saveFile(file, docType);
-        Shareholder shareholder = shareholderRepository.findById(shareholderId)
-                .orElseThrow(() -> new RuntimeException("Shareholder not found"));
-
-        learningService.captureEvent("APPLICANT", "SEC_OFFICER", shareholder.getCompanyId(),
-                "DOC_UPLOAD", "Uploaded " + docType + " for " + shareholder.getFullName(), "");
-
-        return ResponseEntity.ok(shareholder);
-    }
-
-    /**
-     * Upload shareholder affidavit (UBO declaration)
-     */
-    @PostMapping("/{shareholderId}/upload-shareholder-affidavit")
-    public ResponseEntity<Shareholder> uploadShareholderAffidavit(
-            @PathVariable Long shareholderId,
-            @RequestParam("file") MultipartFile file) throws IOException {
-
-        String path = saveFile(file, "shareholder-affidavit");
-        Shareholder shareholder = shareholderRepository.findById(shareholderId)
-                .orElseThrow(() -> new RuntimeException("Shareholder not found"));
-
-        shareholder.setShareholderAffidavitPath(path);
-        shareholder.setScreeningDate(LocalDate.now());
-        Shareholder updated = shareholderRepository.save(shareholder);
-
-        learningService.captureEvent("APPLICANT", "SEC_OFFICER", updated.getCompanyId(),
-                "DOC_UPLOAD", "Uploaded Shareholder Affidavit for " + updated.getFullName(), "");
-
-        return ResponseEntity.ok(updated);
-    }
-
-    /**
-     * Upload capital contribution confirmation
-     */
-    @PostMapping("/{shareholderId}/upload-capital-confirmation")
-    public ResponseEntity<Shareholder> uploadCapitalConfirmation(
-            @PathVariable Long shareholderId,
-            @RequestParam("file") MultipartFile file) throws IOException {
-
-        String path = saveFile(file, "capital-confirmation");
-        Shareholder shareholder = shareholderRepository.findById(shareholderId)
-                .orElseThrow(() -> new RuntimeException("Shareholder not found"));
-
-        shareholder.setCapitalContributionConfirmationPath(path);
-        Shareholder updated = shareholderRepository.save(shareholder);
-
-        learningService.captureEvent("APPLICANT", "SEC_OFFICER", updated.getCompanyId(),
-                "DOC_UPLOAD", "Uploaded Capital Confirmation for " + updated.getFullName(), "");
-
-        return ResponseEntity.ok(updated);
-    }
-
-    /**
-     * Validate shareholding compliance (50% max rule)
-     */
-    @GetMapping("/validate-compliance/{companyId}")
-    public ResponseEntity<Map<String, Object>> validateCompliance(@PathVariable Long companyId) {
-        List<Shareholder> shareholders = shareholderRepository.findByCompanyId(companyId);
-
-        Map<String, Object> result = new HashMap<>();
-        boolean compliant = true;
-        StringBuilder violations = new StringBuilder();
-
-        // Check 50% max shareholding rule
-        for (Shareholder sh : shareholders) {
-            if (sh.getOwnershipPercentage() != null && sh.getOwnershipPercentage() > 50.0) {
-                compliant = false;
-                violations.append(sh.getFullName())
-                        .append(" owns ")
-                        .append(sh.getOwnershipPercentage())
-                        .append("% (exceeds 50% limit). ");
-            }
+        /**
+         * Get shareholding structure for a company
+         */
+        @GetMapping("/shareholding-structure/{companyId}")
+        public ResponseEntity<List<Shareholder>> getShareholdingStructure(@PathVariable Long companyId) {
+                List<Shareholder> shareholders = shareholderRepository.findByCompanyId(companyId);
+                return ResponseEntity.ok(shareholders);
         }
 
-        // Check total ownership adds to 100%
-        double totalOwnership = shareholders.stream()
-                .mapToDouble(sh -> sh.getOwnershipPercentage() != null ? sh.getOwnershipPercentage() : 0.0)
-                .sum();
+        /**
+         * Manually add/update shareholder entry
+         */
+        @PostMapping("/manual-entry/{companyId}")
+        public ResponseEntity<Shareholder> manualShareholderEntry(
+                        @PathVariable Long companyId,
+                        @RequestBody Shareholder shareholder) {
 
-        if (Math.abs(totalOwnership - 100.0) > 0.01) {
-            compliant = false;
-            violations.append("Total ownership is ")
-                    .append(String.format("%.2f", totalOwnership))
-                    .append("% (must be exactly 100%). ");
+                shareholder.setCompanyId(companyId);
+                shareholder.setShareholdingTableManuallyEntered(true);
+                Shareholder saved = shareholderRepository.save(shareholder);
+
+                learningService.captureEvent("APPLICANT", "SEC_OFFICER", companyId,
+                                "SHAREHOLDER_ADD", "Added/Updated shareholder: " + saved.getFullName(),
+                                saved.toString());
+
+                return ResponseEntity.ok(saved);
         }
 
-        result.put("compliant", compliant);
-        result.put("totalOwnership", totalOwnership);
-        result.put("violations", violations.toString());
-        result.put("shareholderCount", shareholders.size());
-
-        learningService.captureEvent("APPLICANT", "SYSTEM", companyId,
-                "RULE_CHECK", "Checked ownership compliance: " + (compliant ? "PASS" : "FAIL"), result.toString());
-
-        return ResponseEntity.ok(result);
-    }
-
-    /**
-     * Helper method to save uploaded files
-     */
-    private String saveFile(MultipartFile file, String type) throws IOException {
-        // Create upload directory if it doesn't exist
-        File uploadDir = new File(UPLOAD_DIR);
-        if (!uploadDir.exists()) {
-            uploadDir.mkdirs();
+        /**
+         * Delete a shareholder entry
+         */
+        @SuppressWarnings("null")
+        @DeleteMapping("/shareholders/{id}")
+        public ResponseEntity<?> deleteShareholder(@PathVariable Long id) {
+                return shareholderRepository.findById(id).map(shareholder -> {
+                        shareholderRepository.delete(shareholder);
+                        learningService.captureEvent("APPLICANT", "SEC_OFFICER", shareholder.getCompanyId(),
+                                        "SHAREHOLDER_REMOVE", "Removed shareholder: " + shareholder.getFullName(), "");
+                        return ResponseEntity.ok().build();
+                }).orElse(ResponseEntity.notFound().build());
         }
 
-        // Save file with unique name
-        String fileName = type + "_" + UUID.randomUUID().toString() + "_" + file.getOriginalFilename();
-        Path filePath = Paths.get(UPLOAD_DIR + fileName);
-        Files.write(filePath, file.getBytes());
+        /**
+         * Upload application form for a shareholder
+         */
+        @SuppressWarnings("null")
+        @PostMapping("/{shareholderId}/upload-application-form")
+        public ResponseEntity<Shareholder> uploadApplicationForm(
+                        @PathVariable Long shareholderId,
+                        @RequestParam("file") MultipartFile file) throws IOException {
 
-        return filePath.toString();
-    }
+                String path = saveFile(file, "application-form");
+                Shareholder shareholder = shareholderRepository.findById(shareholderId)
+                                .orElseThrow(() -> new RuntimeException("Shareholder not found"));
+
+                shareholder.setApplicationFormPath(path);
+                Shareholder updated = shareholderRepository.save(shareholder);
+
+                learningService.captureEvent("APPLICANT", "SEC_OFFICER", updated.getCompanyId(),
+                                "DOC_UPLOAD", "Uploaded Application Form for " + updated.getFullName(), "");
+
+                return ResponseEntity.ok(updated);
+        }
+
+        /**
+         * Upload application letter
+         */
+        @SuppressWarnings("null")
+        @PostMapping("/{shareholderId}/upload-application-letter")
+        public ResponseEntity<Shareholder> uploadApplicationLetter(
+                        @PathVariable Long shareholderId,
+                        @RequestParam("file") MultipartFile file) throws IOException {
+
+                String path = saveFile(file, "application-letter");
+                Shareholder shareholder = shareholderRepository.findById(shareholderId)
+                                .orElseThrow(() -> new RuntimeException("Shareholder not found"));
+
+                shareholder.setApplicationLetterPath(path);
+                Shareholder updated = shareholderRepository.save(shareholder);
+
+                learningService.captureEvent("APPLICANT", "SEC_OFFICER", updated.getCompanyId(),
+                                "DOC_UPLOAD", "Uploaded Application Letter for " + updated.getFullName(), "");
+
+                return ResponseEntity.ok(updated);
+        }
+
+        /**
+         * Upload application fee receipt
+         */
+        @PostMapping("/{companyId}/upload-application-fee")
+        public ResponseEntity<Map<String, String>> uploadApplicationFee(
+                        @PathVariable Long companyId,
+                        @RequestParam("file") MultipartFile file) throws IOException {
+
+                String path = saveFile(file, "application-fee");
+
+                learningService.captureEvent("APPLICANT", "SEC_OFFICER", companyId,
+                                "DOC_UPLOAD", "Uploaded Application Fee Receipt", "");
+
+                Map<String, String> response = new HashMap<>();
+                response.put("path", path);
+                response.put("message", "Application fee receipt uploaded successfully");
+                return ResponseEntity.ok(response);
+        }
+
+        /**
+         * Upload net worth statement for a shareholder
+         */
+        @SuppressWarnings("null")
+        @PostMapping("/{shareholderId}/upload-net-worth-statement")
+        public ResponseEntity<Shareholder> uploadNetWorthStatement(
+                        @PathVariable Long shareholderId,
+                        @RequestParam("file") MultipartFile file) throws IOException {
+
+                String path = saveFile(file, "net-worth-statement");
+                Shareholder shareholder = shareholderRepository.findById(shareholderId)
+                                .orElseThrow(() -> new RuntimeException("Shareholder not found"));
+
+                shareholder.setNetWorthStatementPath(path);
+                Shareholder updated = shareholderRepository.save(shareholder);
+
+                learningService.captureEvent("APPLICANT", "SEC_OFFICER", updated.getCompanyId(),
+                                "DOC_UPLOAD", "Uploaded Net Worth Statement for " + updated.getFullName(), "");
+
+                return ResponseEntity.ok(updated);
+        }
+
+        /**
+         * Upload generic company-level document
+         */
+        @PostMapping("/{companyId}/upload-document/{docType}")
+        public ResponseEntity<Map<String, String>> uploadCompanyDocumentGeneric(
+                        @PathVariable Long companyId,
+                        @PathVariable String docType,
+                        @RequestParam("file") MultipartFile file) throws IOException {
+
+                String path = saveFile(file, docType);
+
+                // Persist to CompanyDocument so we can restore state on reload
+                CompanyDocument doc = new CompanyDocument();
+                doc.setCompanyId(companyId);
+                doc.setDocumentType(docType);
+                doc.setFileName(file.getOriginalFilename());
+                doc.setFilePath(path);
+                doc.setContentType(file.getContentType());
+                doc.setFileSize(file.getSize());
+                companyDocumentRepository.save(doc);
+
+                learningService.captureEvent("APPLICANT", "SEC_OFFICER", companyId,
+                                "DOC_UPLOAD", "Uploaded " + docType, "");
+
+                Map<String, String> response = new HashMap<>();
+                response.put("path", path);
+                response.put("message", docType + " uploaded successfully");
+                return ResponseEntity.ok(response);
+        }
+
+        /**
+         * Get list of uploaded company-level document types for a company.
+         * Used by the frontend to restore upload state on page load.
+         */
+        @GetMapping("/uploaded-documents/{companyId}")
+        public ResponseEntity<Map<String, Object>> getUploadedDocuments(@PathVariable Long companyId) {
+                // Company-level documents (simple docType keys)
+                List<CompanyDocument> allDocs = companyDocumentRepository.findByCompanyId(companyId);
+
+                List<String> companyDocTypes = allDocs.stream()
+                                .filter(d -> !d.getDocumentType().contains("_")) // exclude compound keys
+                                .map(CompanyDocument::getDocumentType)
+                                .distinct()
+                                .collect(Collectors.toList());
+
+                // Per-shareholder document status — from Shareholder entity paths
+                List<Shareholder> shareholders = shareholderRepository.findByCompanyId(companyId);
+                Map<String, List<String>> shareholderDocs = new HashMap<>();
+                for (Shareholder sh : shareholders) {
+                        List<String> uploaded = new java.util.ArrayList<>();
+                        if (sh.getApplicationFormPath() != null)
+                                uploaded.add("applicationForm");
+                        if (sh.getApplicationLetterPath() != null)
+                                uploaded.add("applicationLetter");
+                        if (sh.getNetWorthStatementPath() != null)
+                                uploaded.add("netWorthStatement");
+                        if (sh.getShareholderAffidavitPath() != null)
+                                uploaded.add("shareholderAffidavit");
+                        if (sh.getCapitalContributionConfirmationPath() != null)
+                                uploaded.add("capitalConfirmation");
+                        if (sh.getBoardResolutionPath() != null)
+                                uploaded.add("boardResolution");
+                        shareholderDocs.put(String.valueOf(sh.getId()), uploaded);
+                }
+
+                // Also load generic shareholder docs stored with compound keys
+                // "docType_shareholderId"
+                allDocs.stream()
+                                .filter(d -> d.getDocumentType().contains("_"))
+                                .forEach(d -> {
+                                        String[] parts = d.getDocumentType().split("_", 2);
+                                        if (parts.length == 2) {
+                                                String shId = parts[1];
+                                                String docType = parts[0];
+                                                shareholderDocs.computeIfAbsent(shId, k -> new java.util.ArrayList<>())
+                                                                .add(docType);
+                                        }
+                                });
+
+                Map<String, Object> result = new HashMap<>();
+                result.put("companyDocuments", companyDocTypes);
+                result.put("shareholderDocuments", shareholderDocs);
+                return ResponseEntity.ok(result);
+        }
+
+        /**
+         * Upload generic shareholder document
+         */
+        @SuppressWarnings("null")
+        @PostMapping("/{shareholderId}/upload-shareholder-document/{docType}")
+        public ResponseEntity<Shareholder> uploadShareholderDocumentGeneric(
+                        @PathVariable Long shareholderId,
+                        @PathVariable String docType,
+                        @RequestParam("file") MultipartFile file) throws IOException {
+
+                String path = saveFile(file, docType);
+                Shareholder shareholder = shareholderRepository.findById(shareholderId)
+                                .orElseThrow(() -> new RuntimeException("Shareholder not found"));
+
+                // Persist so we can restore state: use compound key "docType_shareholderId"
+                CompanyDocument doc = new CompanyDocument();
+                doc.setCompanyId(shareholder.getCompanyId());
+                doc.setDocumentType(docType + "_" + shareholderId);
+                doc.setFileName(file.getOriginalFilename());
+                doc.setFilePath(path);
+                doc.setContentType(file.getContentType());
+                doc.setFileSize(file.getSize());
+                companyDocumentRepository.save(doc);
+
+                learningService.captureEvent("APPLICANT", "SEC_OFFICER", shareholder.getCompanyId(),
+                                "DOC_UPLOAD", "Uploaded " + docType + " for " + shareholder.getFullName(), "");
+
+                return ResponseEntity.ok(shareholder);
+        }
+
+        /**
+         * Upload shareholder affidavit (UBO declaration)
+         */
+        @SuppressWarnings("null")
+        @PostMapping("/{shareholderId}/upload-shareholder-affidavit")
+        public ResponseEntity<Shareholder> uploadShareholderAffidavit(
+                        @PathVariable Long shareholderId,
+                        @RequestParam("file") MultipartFile file) throws IOException {
+
+                String path = saveFile(file, "shareholder-affidavit");
+                Shareholder shareholder = shareholderRepository.findById(shareholderId)
+                                .orElseThrow(() -> new RuntimeException("Shareholder not found"));
+
+                shareholder.setShareholderAffidavitPath(path);
+                shareholder.setScreeningDate(LocalDate.now());
+                Shareholder updated = shareholderRepository.save(shareholder);
+
+                learningService.captureEvent("APPLICANT", "SEC_OFFICER", updated.getCompanyId(),
+                                "DOC_UPLOAD", "Uploaded Shareholder Affidavit for " + updated.getFullName(), "");
+
+                return ResponseEntity.ok(updated);
+        }
+
+        /**
+         * Upload capital contribution confirmation
+         */
+        @SuppressWarnings("null")
+        @PostMapping("/{shareholderId}/upload-capital-confirmation")
+        public ResponseEntity<Shareholder> uploadCapitalConfirmation(
+                        @PathVariable Long shareholderId,
+                        @RequestParam("file") MultipartFile file) throws IOException {
+
+                String path = saveFile(file, "capital-confirmation");
+                Shareholder shareholder = shareholderRepository.findById(shareholderId)
+                                .orElseThrow(() -> new RuntimeException("Shareholder not found"));
+
+                shareholder.setCapitalContributionConfirmationPath(path);
+                Shareholder updated = shareholderRepository.save(shareholder);
+
+                learningService.captureEvent("APPLICANT", "SEC_OFFICER", updated.getCompanyId(),
+                                "DOC_UPLOAD", "Uploaded Capital Confirmation for " + updated.getFullName(), "");
+
+                return ResponseEntity.ok(updated);
+        }
+
+        /**
+         * Validate shareholding compliance (50% max rule)
+         */
+        @GetMapping("/validate-compliance/{companyId}")
+        public ResponseEntity<Map<String, Object>> validateCompliance(@PathVariable Long companyId) {
+                List<Shareholder> shareholders = shareholderRepository.findByCompanyId(companyId);
+
+                Map<String, Object> result = new HashMap<>();
+                boolean compliant = true;
+                StringBuilder violations = new StringBuilder();
+
+                // Check 50% max shareholding rule
+                for (Shareholder sh : shareholders) {
+                        if (sh.getOwnershipPercentage() != null && sh.getOwnershipPercentage() > 50.0) {
+                                compliant = false;
+                                violations.append(sh.getFullName())
+                                                .append(" owns ")
+                                                .append(sh.getOwnershipPercentage())
+                                                .append("% (exceeds 50% limit). ");
+                        }
+                }
+
+                // Check total ownership adds to 100%
+                double totalOwnership = shareholders.stream()
+                                .mapToDouble(sh -> sh.getOwnershipPercentage() != null ? sh.getOwnershipPercentage()
+                                                : 0.0)
+                                .sum();
+
+                if (Math.abs(totalOwnership - 100.0) > 0.01) {
+                        compliant = false;
+                        violations.append("Total ownership is ")
+                                        .append(String.format("%.2f", totalOwnership))
+                                        .append("% (must be exactly 100%). ");
+                }
+
+                result.put("compliant", compliant);
+                result.put("totalOwnership", totalOwnership);
+                result.put("violations", violations.toString());
+                result.put("shareholderCount", shareholders.size());
+
+                learningService.captureEvent("APPLICANT", "SYSTEM", companyId,
+                                "RULE_CHECK", "Checked ownership compliance: " + (compliant ? "PASS" : "FAIL"),
+                                result.toString());
+
+                return ResponseEntity.ok(result);
+        }
+
+        /**
+         * Helper method to save uploaded files
+         */
+        private String saveFile(MultipartFile file, String type) throws IOException {
+                // Create upload directory if it doesn't exist
+                File uploadDir = new File(UPLOAD_DIR);
+                if (!uploadDir.exists()) {
+                        uploadDir.mkdirs();
+                }
+
+                // Save file with unique name
+                String fileName = type + "_" + UUID.randomUUID().toString() + "_" + file.getOriginalFilename();
+                Path filePath = Paths.get(UPLOAD_DIR + fileName);
+                Files.write(filePath, file.getBytes());
+
+                return filePath.toString();
+        }
 }
